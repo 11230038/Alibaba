@@ -1,0 +1,53 @@
+"use client";
+
+import { AppstoreOutlined, CommentOutlined, DashboardOutlined, RobotOutlined } from "@ant-design/icons";
+import { Badge, Button, Layout, Menu, Space, Typography } from "antd";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
+
+const { Header, Sider, Content } = Layout;
+
+const navItems = [
+  { key: "/", icon: <DashboardOutlined />, label: <Link href="/">首页</Link> },
+  { key: "/chat", icon: <CommentOutlined />, label: <Link href="/chat">聊天工作台</Link> },
+  { key: "/status", icon: <AppstoreOutlined />, label: <Link href="/status">系统状态</Link> },
+  { key: "/agent", icon: <RobotOutlined />, label: <Link href="/agent">Agent 控制台</Link> },
+];
+
+export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const selectedKey = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`;
+
+  return (
+    <Layout className="fixed inset-0 items-stretch overflow-hidden">
+      <Sider width={232} breakpoint="lg" collapsedWidth="0" className="h-full overflow-y-auto shadow-xl">
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="flex h-16 items-center gap-3 px-5 text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500 font-bold">AI</div>
+            <Typography.Text className="!text-white" strong>
+              外贸运营
+            </Typography.Text>
+          </div>
+          <Menu theme="dark" mode="inline" selectedKeys={[selectedKey]} items={navItems} className="flex-1 border-0" />
+        </div>
+      </Sider>
+      <Layout>
+        <Header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-100 px-6 shadow-sm">
+          <Typography.Title level={4} className="!mb-0">
+            阿里国际站运营助手
+          </Typography.Title>
+          <Space size="middle">
+            <Badge status="processing" text="Receiver 在线" />
+            <Button type="primary" ghost>
+              创建测试任务
+            </Button>
+          </Space>
+        </Header>
+        <Content className="p-6">
+          <div className="mx-auto max-w-[1480px]">{children}</div>
+        </Content>
+      </Layout>
+    </Layout>
+  );
+}

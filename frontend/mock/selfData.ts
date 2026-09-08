@@ -1,0 +1,13 @@
+import type { SelfInfo } from "@/types/home";
+
+export const mockSelfInfo: SelfInfo = {
+  ali_id: "seller-ali-001",
+  login_id: "demo-seller",
+  encrypt_account_id: "enc-seller-001",
+  first_name: "Demo",
+  last_name: "Seller",
+  country: "China",
+  company_name: "Hangzhou Smart Export Co., Ltd.",
+  avatar_url: "/mock/avatar-seller.png",
+  account_status: "active",
+};
