@@ -247,23 +247,40 @@ export const mockBackend: OperationsBackend = {
     return delay(input);
   },
 
-  runAgentTest: async ({ agentId, content }) => {
+  runAgentTest: async ({ agentId, content, sessionId }) => {
     const agent = consoleStore.agents.find((item) => item.id === agentId) ?? consoleStore.agents[0];
     const now = nowText();
+
+    if (sessionId) {
+      const existingSession = consoleStore.history.find((item) => item.id === sessionId);
+      if (!existingSession) throw new Error("Agent 会话不存在");
+      if (existingSession.agentId !== agentId || !content?.trim()) throw new Error("Agent 会话请求无效");
+      const userMessage = { id: `user-${Date.now()}`, role: "user" as const, content: content.trim(), createdAt: now };
+      const reply = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant" as const,
+        content: `模拟回复：${agent.name} 已根据接口文档约定返回处理建议。`,
+        createdAt: now,
+      };
+      const session = { ...existingSession, messages: [...existingSession.messages, userMessage, reply] };
+      consoleStore = { ...consoleStore, history: consoleStore.history.map((item) => item.id === session.id ? session : item) };
+      return delay({ session, reply }, 520);
+    }
+
     const session: AgentTestSession = {
       id: `session-${Date.now()}`,
       title: `${agent.name} 测试`,
       agentId,
       createdAt: now,
-      messages: [
-        { id: `user-${Date.now()}`, role: "user", content, createdAt: now },
+      messages: content?.trim() ? [
+        { id: `user-${Date.now()}`, role: "user", content: content.trim(), createdAt: now },
         {
           id: `assistant-${Date.now()}`,
           role: "assistant",
           content: `模拟回复：${agent.name} 已根据接口文档约定返回处理建议。`,
           createdAt: now,
         },
-      ],
+      ] : [],
     };
     consoleStore = { ...consoleStore, history: [session, ...consoleStore.history] };
     return delay({ session, reply: session.messages[1] }, 520);

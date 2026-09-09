@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, Checkbox, Listy, Radio, Space, Typography } from "antd";
+import { Avatar, Badge, Checkbox, Listy, Radio, Space, Typography } from "antd";
 import { groupConversations, sortConversations } from "@/domain/chat/chatModel";
 import type { Conversation } from "@/types/chat";
 import { StatusTag } from "@/components/StatusTag";
@@ -49,13 +49,14 @@ export function ConversationList({
               >
                 <div className="flex w-full gap-2">
                   {selectable ? <Checkbox checked={selectedIds.includes(item.id)} onClick={(event) => event.stopPropagation()} onChange={() => onToggleSelected?.(item.id)} /> : null}
+                  <Avatar src={avatarUrl(item.id)} size={40} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <Typography.Text strong ellipsis>{item.customer.name}</Typography.Text>
                       <Badge count={item.unreadCount} size="small" />
                     </div>
                     <Typography.Text type="secondary" ellipsis className="block text-xs">{item.customer.company} · {item.customer.country}</Typography.Text>
-                    <Typography.Text ellipsis className="block text-xs">{item.latestMessage}</Typography.Text>
+                    {item.latestMessage ? <Typography.Text ellipsis className="block text-xs">{item.latestMessage}</Typography.Text> : null}
                     <div className="mt-2 flex items-center justify-between">
                       <StatusTag status={item.status} />
                       <Typography.Text type="secondary" className="text-xs">{item.updatedAt.slice(5)}</Typography.Text>
@@ -69,4 +70,9 @@ export function ConversationList({
       ))}
     </Space>
   );
+}
+
+function avatarUrl(id: string) {
+  const seed = Array.from(id).reduce((total, character) => total + character.charCodeAt(0), 0);
+  return `https://i.pravatar.cc/80?img=${(seed % 70) + 1}`;
 }

@@ -14,13 +14,15 @@ export type AgentEditValues = {
 
 type AgentEditModalProps = {
   agent?: AgentConfig;
+  category?: AgentConfig["category"];
+  title?: string;
   open: boolean;
   saving: boolean;
   onClose: () => void;
   onSave: (values: AgentEditValues) => void;
 };
 
-export function AgentEditModal({ agent, open, saving, onClose, onSave }: AgentEditModalProps) {
+export function AgentEditModal({ agent, category, title, open, saving, onClose, onSave }: AgentEditModalProps) {
   const [form] = Form.useForm<AgentEditValues>();
 
   useEffect(() => {
@@ -39,7 +41,7 @@ export function AgentEditModal({ agent, open, saving, onClose, onSave }: AgentEd
 
   return (
     <Modal
-      title={`编辑 ${agent?.name ?? "Agent"}`}
+      title={title ?? `编辑 ${agent?.name ?? "Agent"}`}
       open={open}
       onCancel={onClose}
       footer={null}
@@ -58,7 +60,7 @@ export function AgentEditModal({ agent, open, saving, onClose, onSave }: AgentEd
         <Form.Item name="level" label="等级" rules={[{ required: true, message: "请输入等级" }]}>
           <InputNumber min={1} max={5} className="w-full" />
         </Form.Item>
-        {agent?.category === "regular" && (
+        {(agent?.category ?? category) === "regular" && (
           <Form.Item name="capabilities" label="能力">
             <Select mode="tags" tokenSeparators={[",", "，"]} placeholder="输入能力后回车" />
           </Form.Item>

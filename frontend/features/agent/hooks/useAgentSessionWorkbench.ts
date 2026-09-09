@@ -13,6 +13,8 @@ export function useAgentSessionWorkbench() {
   const [activeSessionId, setActiveSessionId] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -40,21 +42,35 @@ export function useAgentSessionWorkbench() {
     setActiveSessionId(id);
   }
 
-  async function createSession(agentId: string, content: string) {
+  async function createSession(agentId: string) {
     if (creating) return;
-    const agent = agents.find((item) => item.id === agentId && item.category === "regular");
-    if (!agent || !content.trim()) return;
+    const agent = agents.find((item) => item.id === agentId && item.category === "regular" && item.enabled);
+    if (!agent) return;
 
     setCreating(true);
     try {
-      const result = await backend.runAgentTest({ agentId: agent.id, content: content.trim() });
+      const result = await backend.runAgentTest({ agentId: agent.id });
       setSessions((current) => [result.session, ...current.filter((item) => item.id !== result.session.id)]);
       setActiveSessionId(result.session.id);
+      setDraft("");
       message.success("会话已创建");
     } finally {
       setCreating(false);
     }
   }
 
-  return { agents, sessions, activeSession, activeSessionId, loading, creating, selectSession, createSession };
+  async function sendMessage() {
+    if (sending || !activeSession || !draft.trim()) return;
+    setSending(true);
+    try {
+      const result = await backend.runAgentTest({ agentId: activeSession.agentId, sessionId: activeSession.id, content: draft.trim() });
+      setSessions((current) => [result.session, ...current.filter((item) => item.id !== result.session.id)]);
+      setDraft("");
+      message.success("消息已发送");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return { agents, sessions, activeSession, activeSessionId, loading, creating, draft, setDraft, sending, selectSession, createSession, sendMessage };
 }

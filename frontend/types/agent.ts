@@ -90,10 +90,11 @@ export interface AgentConsoleState {
 
 export interface AgentTestInput {
   agentId: ID;
-  content: string;
+  content?: string;
+  sessionId?: ID;
 }
 
 export interface AgentTestResult {
   session: AgentTestSession;
-  reply: AgentTestMessage;
+  reply?: AgentTestMessage;
 }

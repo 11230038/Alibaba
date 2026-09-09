@@ -1,14 +1,14 @@
 "use client";
 
 import { PlusOutlined, UserOutlined } from "@ant-design/icons";
-import { Avatar, Button, Card, Col, Empty, Form, Input, List, Modal, Row, Select, Space, Tag, Typography } from "antd";
+import { Avatar, Button, Card, Col, Empty, Form, Listy, Modal, Row, Select, Space, Tag, Typography } from "antd";
+import { MessageComposer } from "@/components/MessageComposer";
 import { useState } from "react";
 import type { AgentTestSession } from "@/types/agent";
 import { useAgentSessionWorkbench } from "./hooks/useAgentSessionWorkbench";
 
 type CreateSessionValues = {
   agentId: string;
-  content: string;
 };
 
 export function AgentSessionsPage() {
@@ -18,7 +18,7 @@ export function AgentSessionsPage() {
   const agentNames = new Map(workbench.agents.map((agent) => [agent.id, agent.name]));
 
   async function handleCreate(values: CreateSessionValues) {
-    await workbench.createSession(values.agentId, values.content);
+    await workbench.createSession(values.agentId);
     form.resetFields();
     setCreateOpen(false);
   }
@@ -26,18 +26,19 @@ export function AgentSessionsPage() {
   return (
     <Space orientation="vertical" size="large" className="w-full">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-        <Typography.Title level={2} className="!mb-1">agent会话</Typography.Title>
+        <Typography.Title level={2} className="!mb-1">Agent会话</Typography.Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建会话</Button>
       </div>
 
       <Row gutter={[16, 16]}>
-        <Col xs={24} xl={8}>
+        <Col xs={24} xl={6}>
           <Card title="会话列表" loading={workbench.loading} className="min-h-[640px]">
             {workbench.sessions.length ? (
-              <List
-                dataSource={workbench.sessions}
+              <Listy
+                items={workbench.sessions}
                 rowKey="id"
-                renderItem={(session) => (
+                virtual={false}
+                itemRender={(session) => (
                   <SessionListItem
                     session={session}
                     agentName={agentNames.get(session.agentId) ?? session.agentId}
@@ -52,13 +53,28 @@ export function AgentSessionsPage() {
           </Card>
         </Col>
 
-        <Col xs={24} xl={16}>
+        <Col xs={24} xl={18}>
           <Card
             title={workbench.activeSession ? `${agentNames.get(workbench.activeSession.agentId) ?? workbench.activeSession.agentId} · ${workbench.activeSession.title}` : "会话详情"}
             className="min-h-[640px]"
           >
             {workbench.activeSession ? (
-              <SessionMessages session={workbench.activeSession} />
+              <Space orientation="vertical" className="w-full" size="large">
+                <div className="max-h-[500px] overflow-y-auto pr-2">
+                  <SessionMessages session={workbench.activeSession} />
+                </div>
+                <MessageComposer
+                  value={workbench.draft}
+                  onChange={workbench.setDraft}
+                  tools={[{ key: "new-session", label: "新建会话" }]}
+                  onToolClick={(key) => {
+                    if (key === "new-session") setCreateOpen(true);
+                  }}
+                  placeholder="输入要交给 Agent 处理的问题或任务..."
+                  loading={workbench.sending}
+                  onSend={workbench.sendMessage}
+                />
+              </Space>
             ) : (
               <Empty description="请选择会话或新建会话" />
             )}
@@ -76,9 +92,6 @@ export function AgentSessionsPage() {
         <Form form={form} layout="vertical" onFinish={handleCreate}>
           <Form.Item name="agentId" label="普通 Agent" rules={[{ required: true, message: "请选择普通 Agent" }]}>
             <Select placeholder="选择要对话的普通 Agent" options={workbench.agents.map((agent) => ({ label: agent.name, value: agent.id, disabled: !agent.enabled }))} />
-          </Form.Item>
-          <Form.Item name="content" label="首条消息" rules={[{ required: true, whitespace: true, message: "请输入首条消息" }]}>
-            <Input.TextArea rows={5} placeholder="输入要交给 Agent 处理的问题或任务" />
           </Form.Item>
           <div className="flex justify-end gap-2">
             <Button onClick={() => setCreateOpen(false)}>取消</Button>

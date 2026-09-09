@@ -1,54 +1,78 @@
 "use client";
 
-import { Button, Card, Col, Progress, Row, Space, Statistic, Table, Typography } from "antd";
-import { healthScore } from "@/domain/status/statusModel";
+import { ExperimentOutlined, ReloadOutlined } from "@ant-design/icons";
+import { Button, Card, Col, Empty, Row, Space, Table, Tag, Typography } from "antd";
+import { HydrationSafeTable } from "@/components/HydrationSafeTable";
 import { StatusTag } from "@/components/StatusTag";
+import type { HealthModule, TaskItem } from "@/types/status";
 import { useStatusWorkbench } from "./hooks/useStatusWorkbench";
+
+const healthModuleIds = ["health-identity", "health-proxy", "health-receiver"] as const;
 
 export function StatusPage() {
   const { snapshot, loading, refreshing, refresh, createTestTask } = useStatusWorkbench();
+  const modules = healthModuleIds.map((id) => snapshot?.modules.find((module) => module.id === id)).filter((module): module is HealthModule => Boolean(module));
 
   return (
     <Space orientation="vertical" size="large" className="w-full">
-      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-        <div>
-          <Typography.Title level={2} className="!mb-1">系统状态</Typography.Title>
-        </div>
-        <Space>
-          <Button onClick={createTestTask}>创建测试任务</Button>
-          <Button type="primary" loading={refreshing} onClick={refresh}>刷新状态</Button>
-        </Space>
+      <div>
+        <Typography.Title level={2} className="!mb-1">系统状态</Typography.Title>
       </div>
 
-      <Card loading={loading} extra={<Typography.Text type="secondary">更新时间：{snapshot?.updatedAt}</Typography.Text>}>
+      <Card title="系统状态" loading={loading}>
         <Row gutter={[16, 16]}>
-          {snapshot?.modules.map((module) => (
-            <Col xs={24} md={8} key={module.id}>
-              <Card size="small" title={module.name} extra={<StatusTag status={module.status} badge />}>
-                <Space orientation="vertical" className="w-full">
-                  <Statistic title="延迟" value={module.latency} suffix="ms" />
-                  <Progress percent={healthScore(module.status)} status={module.status === "offline" ? "exception" : module.status === "warning" ? "active" : "success"} />
-                </Space>
-              </Card>
-            </Col>
-          ))}
+          {modules.map((module) => <Col xs={24} md={8} key={module.id}><HealthModulePanel module={module} /></Col>)}
+          {!loading && !modules.length ? <Col span={24}><Empty description="暂无状态数据" /></Col> : null}
         </Row>
+      </Card>
+
+      <Card title="快捷测试动作">
+        <Space wrap>
+          <Button icon={<ReloadOutlined />} loading={refreshing} onClick={refresh}>刷新运行状态</Button>
+          <Button type="primary" icon={<ExperimentOutlined />} onClick={createTestTask}>创建 mock 测试任务</Button>
+        </Space>
       </Card>
 
       <Card title="任务队列">
         <Table
           rowKey="id"
           dataSource={snapshot?.tasks ?? []}
+          loading={loading}
+          scroll={{ x: 900 }}
+          components={{ table: HydrationSafeTable }}
           columns={[
-            { title: "任务类型", dataIndex: "type" },
-            { title: "状态", dataIndex: "status", render: (value) => <StatusTag status={value} /> },
-            { title: "创建时间", dataIndex: "createdAt" },
-            { title: "耗时", dataIndex: "duration" },
-            { title: "负责人", dataIndex: "owner" },
-            { title: "备注", dataIndex: "remark" },
+            { title: "任务 ID", dataIndex: "id", width: 150 },
+            { title: "操作类型", dataIndex: "type", width: 180 },
+            { title: "目标", dataIndex: "owner", width: 180 },
+            { title: "创建时间", dataIndex: "createdAt", width: 180 },
+            { title: "状态", dataIndex: "status", width: 120, render: (value: TaskItem["status"]) => <StatusTag status={value} /> },
+            { title: "结果", dataIndex: "remark", minWidth: 280 },
+            { title: "操作", key: "action", width: 80, render: () => <Tag>详情</Tag> },
           ]}
+          locale={{ emptyText: "暂无任务" }}
         />
       </Card>
     </Space>
+  );
+}
+
+function HealthModulePanel({ module }: { module: HealthModule }) {
+  const title = module.id === "health-identity" ? "用户状态" : module.id === "health-proxy" ? "MITM 代理" : "MITM Receiver";
+  const description = module.id === "health-identity" && module.status === "healthy"
+    ? "卖家身份已捕获，CRM 会话可读取"
+    : module.id === "health-receiver" && module.status === "warning"
+      ? "最近 5 分钟捕获量偏低，等待新消息进入"
+      : module.description;
+
+  return (
+    <div className="h-full rounded-lg border border-slate-200 bg-white p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <Typography.Text strong>{title}</Typography.Text>
+        <StatusTag status={module.status} />
+      </div>
+      <Typography.Title level={4} className="!mb-2">{module.status === "healthy" ? "在线" : module.status === "warning" ? "注意" : "离线"}</Typography.Title>
+      <Typography.Paragraph type="secondary" className="!mb-4 min-h-12">{description}</Typography.Paragraph>
+      <Typography.Text type="secondary" className="text-xs">最近检查：{module.lastCheckedAt}</Typography.Text>
+    </div>
   );
 }

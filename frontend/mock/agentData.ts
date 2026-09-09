@@ -118,7 +118,6 @@ export const agentConsole: AgentConsoleState = {
       createdAt: "2026-08-11T09:25:00+08:00",
       messages: [
         { id: "h1-m1", role: "user", content: "客户询问彩盒成本和交期，如何回复？", createdAt: "2026-08-11T09:23:00+08:00" },
-        { id: "h1-m2", role: "assistant", content: "建议先确认正在核价，并承诺今天内给出最终报价。", createdAt: "2026-08-11T09:24:00+08:00" },
       ],
     },
   ],

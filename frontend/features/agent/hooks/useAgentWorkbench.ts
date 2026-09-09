@@ -98,7 +98,7 @@ function useAgentWorkbenchController() {
       description: values.description.trim(),
       prompt: values.prompt.trim(),
       level: values.level,
-      tools: values.capabilities.map((item: string) => item.trim()).filter(Boolean),
+      tools: (values.capabilities ?? []).map((item: string) => item.trim()).filter(Boolean),
       updated_at: updatedAt,
       apid: agent.apid,
     };
@@ -107,6 +107,30 @@ function useAgentWorkbenchController() {
       const saved = await backend.saveAgentPreset(preset);
       syncAgentState(saved);
       message.success("Agent 已保存");
+    } finally {
+      setAgentMutationId(undefined);
+    }
+  }
+
+  async function createAgent(values: AgentEditValues) {
+    if (agentMutationId) return;
+    const id = `agent-${Date.now()}`;
+    const preset: AgentPreset = {
+      id,
+      name: values.name.trim(),
+      category: "regular",
+      enabled: true,
+      description: values.description.trim(),
+      prompt: values.prompt.trim(),
+      level: values.level,
+      tools: (values.capabilities ?? []).map((item: string) => item.trim()).filter(Boolean),
+      updated_at: nowText(),
+    };
+    setAgentMutationId(id);
+    try {
+      const saved = await backend.saveAgentPreset(preset);
+      syncAgentState(saved);
+      message.success("Agent 已创建");
     } finally {
       setAgentMutationId(undefined);
     }
@@ -153,11 +177,18 @@ function useAgentWorkbenchController() {
       level: preset.level,
       apid: preset.apid,
     };
-    setState((current) => current ? {
-      ...current,
-      agents: current.agents.map((item) => item.id === updated.id ? updated : item),
-      agentPresets: current.agentPresets?.map((item) => item.id === preset.id ? preset : item),
-    } : current);
+    setState((current) => {
+      if (!current) return current;
+      const hasAgent = current.agents.some((item) => item.id === updated.id);
+      const hasPreset = current.agentPresets?.some((item) => item.id === preset.id) ?? false;
+      return {
+        ...current,
+        agents: hasAgent ? current.agents.map((item) => item.id === updated.id ? updated : item) : [updated, ...current.agents],
+        agentPresets: current.agentPresets
+          ? (hasPreset ? current.agentPresets.map((item) => item.id === preset.id ? preset : item) : [preset, ...current.agentPresets])
+          : [preset],
+      };
+    });
   }
 
   async function runTest(content: string) {
@@ -189,7 +220,7 @@ function useAgentWorkbenchController() {
     message.success("已复制测试历史");
   }
 
-  return { state, loading, saveLlmConfig, saveLlmLevel, toggleAgent, saveAgent, deleteAgent, resetSystemAgent, agentMutationId, testAgentId, setTestAgentId, testing, runTest, deleteSession, branchSession, copySession };
+  return { state, loading, saveLlmConfig, saveLlmLevel, toggleAgent, saveAgent, createAgent, deleteAgent, resetSystemAgent, agentMutationId, testAgentId, setTestAgentId, testing, runTest, deleteSession, branchSession, copySession };
 }
 
 type AgentWorkbench = ReturnType<typeof useAgentWorkbenchController>;

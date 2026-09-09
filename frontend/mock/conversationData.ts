@@ -97,20 +97,8 @@ export const crmConversations: CrmConversation[] = [
   {
     contact_ali_id: "buyer-ali-001",
     last_created_at: "2026-09-07 10:21",
-    last_content_label: "Can you share sample cost and CE certificate?",
+    last_content_label: "",
     messages: [
-      {
-        table_name: "message_202609",
-        cid: "buyer-ali-001",
-        mid: "msg-001",
-        sender_id: "buyer-ali-001",
-        created_at: "2026-09-07 10:18",
-        user_content_type: 1,
-        content_label: "Hi, we are sourcing solar garden lights for Spain. Can you share sample cost and CE certificate?",
-        content: "Hi, we are sourcing solar garden lights for Spain. Can you share sample cost and CE certificate?",
-        is_system: false,
-        is_auto_reply: false,
-      },
       {
         table_name: "message_202609",
         cid: "buyer-ali-001",
@@ -141,20 +129,8 @@ export const crmConversations: CrmConversation[] = [
   {
     contact_ali_id: "buyer-ali-002",
     last_created_at: "2026-09-07 09:48",
-    last_content_label: "We need 500 sets if warranty can be extended.",
+    last_content_label: "",
     messages: [
-      {
-        table_name: "message_202609",
-        cid: "buyer-ali-002",
-        mid: "msg-004",
-        sender_id: "buyer-ali-002",
-        created_at: "2026-09-07 09:42",
-        user_content_type: 1,
-        content_label: "We need 500 sets if warranty can be extended to 24 months.",
-        content: "We need 500 sets if warranty can be extended to 24 months.",
-        is_system: false,
-        is_auto_reply: false,
-      },
       {
         table_name: "message_202609",
         cid: "buyer-ali-002",
@@ -185,20 +161,8 @@ export const crmConversations: CrmConversation[] = [
   {
     contact_ali_id: "buyer-ali-003",
     last_created_at: "2026-09-06 22:11",
-    last_content_label: "Please send more information about OEM options.",
+    last_content_label: "",
     messages: [
-      {
-        table_name: "message_202609",
-        cid: "buyer-ali-003",
-        mid: "msg-007",
-        sender_id: "buyer-ali-003",
-        created_at: "2026-09-06 22:11",
-        user_content_type: 1,
-        content_label: "Nice meeting you at the fair. Please send more information about OEM options.",
-        content: "Nice meeting you at the fair. Please send more information about OEM options.",
-        is_system: false,
-        is_auto_reply: false,
-      },
       {
         table_name: "message_202609",
         cid: "buyer-ali-003",
