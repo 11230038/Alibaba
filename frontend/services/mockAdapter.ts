@@ -1,4 +1,4 @@
-import { agentConsole, agentPresets, documentLlmConfig, systemAgents } from "@/mock/agentData";
+import { agentConsole, agentPresets, documentLlmConfig, llmLevels, systemAgents } from "@/mock/agentData";
 import { businessCards } from "@/mock/cardData";
 import { crmConversations, replySuggestions, userInfos } from "@/mock/conversationData";
 import { homeDashboard } from "@/mock/homeData";
@@ -220,7 +220,18 @@ export const mockBackend: OperationsBackend = {
   listSystemAgentDefinitions: () => delay(structuredClone(systemAgents)),
 
   updateLlmConfig: async (input: LlmConfig) => {
-    consoleStore = { ...consoleStore, llmConfig: input };
+    const nextLevels = input.level === undefined
+      ? consoleStore.llmLevels
+      : (consoleStore.llmLevels ?? llmLevels).map((level) => level.level === input.level ? {
+          ...level,
+          baseUrl: input.baseUrl ?? level.baseUrl,
+          apiKey: input.apiKey ?? level.apiKey,
+          modelName: input.model,
+          systemPrompt: input.systemPrompt,
+          context: input.context ?? level.context,
+          maxToolRounds: input.maxToolRounds ?? level.maxToolRounds,
+        } : level);
+    consoleStore = { ...consoleStore, llmConfig: input, llmLevels: nextLevels };
     documentLlmConfigStore = uiToDocumentLlmConfig(input, documentLlmConfigStore);
     consoleStore.documentLlmConfig = documentLlmConfigStore;
     return delay(input);

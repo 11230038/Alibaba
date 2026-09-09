@@ -26,7 +26,8 @@ const navItems = [
     label: "自动化",
     children: [
       { key: "/agent/llm", icon: <SettingOutlined />, label: <Link href="/agent/llm">LLM</Link> },
-      { key: "/agent/agents", icon: <RobotOutlined />, label: <Link href="/agent/agents">Agent</Link> },
+      { key: "/agent/system-agents", icon: <RobotOutlined />, label: <Link href="/agent/system-agents">系统 Agent</Link> },
+      { key: "/agent/regular-agents", icon: <RobotOutlined />, label: <Link href="/agent/regular-agents">普通 Agent</Link> },
     ],
   },
   {
@@ -57,11 +58,13 @@ function NavigationMenu({ selectedKey, routeOpenKeys }: { selectedKey: string; r
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const selectedKey = pathname.startsWith("/agent/agents")
-    ? "/agent/agents"
-    : pathname.startsWith("/agent/llm")
-      ? "/agent/llm"
-      : pathname === "/chat" || pathname.startsWith("/chat/customer-sessions")
+  const selectedKey = pathname.startsWith("/agent/system-agents")
+    ? "/agent/system-agents"
+    : pathname.startsWith("/agent/regular-agents")
+      ? "/agent/regular-agents"
+      : pathname.startsWith("/agent/llm")
+        ? "/agent/llm"
+        : pathname === "/chat" || pathname.startsWith("/chat/customer-sessions")
         ? "/chat/customer-sessions"
         : pathname.startsWith("/status")
           ? "/status"

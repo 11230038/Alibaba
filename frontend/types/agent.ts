@@ -29,6 +29,7 @@ export interface SystemAgentDefinition {
 }
 
 export interface LlmConfig {
+  level?: number;
   model: string;
   temperature: number;
   maxTokens: number;
@@ -37,6 +38,16 @@ export interface LlmConfig {
   apiKey?: string;
   context?: number;
   maxToolRounds?: number | null;
+}
+
+export interface LlmLevelConfig {
+  level: number;
+  baseUrl: string;
+  apiKey: string;
+  modelName: string;
+  systemPrompt: string;
+  context: number;
+  maxToolRounds: number;
 }
 
 export interface AgentConfig {
@@ -69,6 +80,7 @@ export interface AgentTestSession {
 
 export interface AgentConsoleState {
   llmConfig: LlmConfig;
+  llmLevels?: LlmLevelConfig[];
   documentLlmConfig?: DocumentLlmConfig;
   agents: AgentConfig[];
   agentPresets?: AgentPreset[];

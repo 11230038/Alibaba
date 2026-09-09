@@ -1,74 +1,95 @@
-import type { AgentConsoleState, AgentPreset, DocumentLlmConfig, SystemAgentDefinition } from "@/types/agent";
+import type { AgentConsoleState, AgentPreset, DocumentLlmConfig, LlmLevelConfig, SystemAgentDefinition } from "@/types/agent";
+
+const systemAgentSources = [
+  { id: "sys-translate", name: "翻译 Agent", binding: "translation", level: 1, prompt: "将买家消息翻译成自然中文，保留贸易术语。" },
+  { id: "sys-suggestion", name: "回复建议 Agent", binding: "reply_suggestion", level: 2, prompt: "根据会话上下文生成不超过三条可发送英文回复。" },
+  { id: "sys-intent", name: "客户意图分析 Agent", binding: "intent_analysis", level: 3, prompt: "判断客户采购意图、关注点、风险和下一步行动。" },
+  { id: "sys-stage", name: "客户阶段分析 Agent", binding: "stage_analysis", level: 3, prompt: "识别客户所处阶段并给出推进策略。" },
+] as const;
+
+const regularAgentSources = [
+  {
+    id: "agent-quote",
+    name: "报价跟进助手",
+    description: "根据产品、MOQ 和客户历史生成报价跟进话术。",
+    prompt: "你是报价跟进助手，需要用英文生成清晰、专业、可直接发送的回复。",
+    level: 2,
+    tools: ["CRM 查询", "报价模板"],
+    updatedAt: "2026-08-11T09:25:00+08:00",
+  },
+  {
+    id: "agent-risk",
+    name: "订单风险审阅",
+    description: "审阅客户需求中的履约、价格、付款风险。",
+    prompt: "识别潜在订单风险并给出卖家可执行建议。",
+    level: 3,
+    tools: ["CRM 查询", "订单摘要", "物流计算"],
+    updatedAt: "2026-08-11T09:25:00+08:00",
+  },
+] as const;
+
+const defaultUpdatedAt = "2026-09-09T00:00:00+08:00";
+// Mirrors the five level records from .product/mock/agentData/llmConfig.js.
+export const llmLevels: LlmLevelConfig[] = Array.from({ length: 5 }, (_, level) => ({
+  level,
+  baseUrl: "https://api.mock-llm.example/v1",
+  apiKey: `sk-mock-level-${level}-placeholder`,
+  modelName: level >= 3 ? "claude-sonnet-5" : "claude-haiku-4-5-20251001",
+  systemPrompt: `Level ${level} agent prompt for Alibaba seller workflow.`,
+  context: 12000 + level * 4000,
+  maxToolRounds: 3 + level,
+}));
+
+const llmLevel = llmLevels[3];
 
 export const documentLlmConfig: DocumentLlmConfig = {
-  base_url: "http://127.0.0.1:8787/mock-llm",
-  api_key: "mock-api-key",
-  model_name: "mock-local",
-  system_prompt: "你是外贸运营助理，负责根据客户意图生成专业、礼貌、可执行的跟进建议。",
-  context: 16000,
-  max_tool_rounds: 4,
+  base_url: llmLevel.baseUrl,
+  api_key: llmLevel.apiKey,
+  model_name: llmLevel.modelName,
+  system_prompt: "你是阿里国际站卖家助手，回答必须准确、礼貌、商业化，并保留客户上下文。",
+  context: llmLevel.context,
+  max_tool_rounds: llmLevel.maxToolRounds,
 };
 
-export const systemAgents: SystemAgentDefinition[] = [
-  { display_name: "客户意图分析 Agent", apid: "customer-analysis", description: "分析客户消息、行为和交易阶段。" },
-  { display_name: "智能回复 Agent", apid: "reply-suggestion", description: "根据上下文生成可直接发送的客户回复。" },
-];
+export const systemAgents: SystemAgentDefinition[] = systemAgentSources.map((agent) => ({
+  display_name: agent.name,
+  apid: agent.binding,
+  description: agent.prompt,
+}));
 
 export const agentPresets: AgentPreset[] = [
-  {
-    id: "agent-analysis",
-    name: "客户意图分析 Agent",
-    category: "system",
+  ...systemAgentSources.map((agent) => ({
+    id: agent.id,
+    name: agent.name,
+    category: "system" as const,
     enabled: true,
-    description: "分析客户消息、行为和交易阶段，生成下一步动作。",
-    prompt: "基于会话上下文输出客户意图、阶段、证据、顾虑和下一步动作。",
-    level: 3,
-    tools: ["crm_lookup", "conversation_reader"],
-    updated_at: "2026-09-07 09:40",
-    apid: "customer-analysis",
-  },
-  {
-    id: "agent-reply",
-    name: "智能回复 Agent",
-    category: "system",
+    description: agent.prompt,
+    prompt: agent.prompt,
+    level: agent.level,
+    tools: [],
+    updated_at: defaultUpdatedAt,
+    apid: agent.binding,
+  })),
+  ...regularAgentSources.map((agent) => ({
+    id: agent.id,
+    name: agent.name,
+    category: "regular" as const,
     enabled: true,
-    description: "根据上下文生成可直接发送的客户回复。",
-    prompt: "生成最多 3 条中文说明和买家语言回复。",
-    level: 3,
-    tools: ["translation_cache", "card_lookup"],
-    updated_at: "2026-09-07 09:38",
-    apid: "reply-suggestion",
-  },
-  {
-    id: "agent-card",
-    name: "卡片推荐 Agent",
-    category: "regular",
-    enabled: true,
-    description: "从业务卡片中匹配最适合当前会话的卡片。",
-    prompt: "按客户意图和商品关键词推荐卡片。",
-    level: 2,
-    tools: ["card_lookup"],
-    updated_at: "2026-09-06 17:10",
-  },
-  {
-    id: "agent-quality",
-    name: "回复质检 Agent",
-    category: "regular",
-    enabled: false,
-    description: "发送前检查回复内容是否存在风险。",
-    prompt: "检查回复中的承诺、价格、交期和敏感表达。",
-    level: 2,
-    tools: ["policy_check"],
-    updated_at: "2026-09-05 15:22",
-  },
+    description: agent.description,
+    prompt: agent.prompt,
+    level: agent.level,
+    tools: [...agent.tools],
+    updated_at: agent.updatedAt,
+  })),
 ];
 
 export const agentConsole: AgentConsoleState = {
   documentLlmConfig,
+  llmLevels,
   llmConfig: {
-    model: documentLlmConfig.model_name,
+    model: llmLevel.modelName,
     temperature: 0.4,
-    maxTokens: 1600,
+    maxTokens: 4096,
     systemPrompt: documentLlmConfig.system_prompt ?? "",
     baseUrl: documentLlmConfig.base_url,
     apiKey: documentLlmConfig.api_key,
@@ -91,13 +112,13 @@ export const agentConsole: AgentConsoleState = {
   systemAgents,
   history: [
     {
-      id: "session-001",
-      title: "太阳能灯样品报价测试",
-      agentId: "agent-reply",
-      createdAt: "2026-09-07 09:55",
+      id: "hist-001",
+      title: "Nordic Home 彩盒报价",
+      agentId: "agent-quote",
+      createdAt: "2026-08-11T09:25:00+08:00",
       messages: [
-        { id: "hist-001", role: "user", content: "客户询问 CE 证书和样品费用，帮我回复。", createdAt: "2026-09-07 09:55" },
-        { id: "hist-002", role: "assistant", content: "建议先确认目标数量，并同步发送 CE 证书与样品费用明细。", createdAt: "2026-09-07 09:56" },
+        { id: "h1-m1", role: "user", content: "客户询问彩盒成本和交期，如何回复？", createdAt: "2026-08-11T09:23:00+08:00" },
+        { id: "h1-m2", role: "assistant", content: "建议先确认正在核价，并承诺今天内给出最终报价。", createdAt: "2026-08-11T09:24:00+08:00" },
       ],
     },
   ],

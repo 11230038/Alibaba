@@ -29,9 +29,9 @@ export const homeDashboard: HomeDashboard = {
     priority: user.potential_score >= 80 ? "high" : "medium",
   })),
   capabilities: [
-    { key: "analysis", agent: "客户意图分析 Agent", ability: "意图识别 / 阶段判断", coverage: 92, status: "healthy" },
-    { key: "reply", agent: "智能回复 Agent", ability: "多语回复 / 报价话术", coverage: 88, status: "healthy" },
-    { key: "card", agent: "卡片推荐 Agent", ability: "业务卡片匹配", coverage: 76, status: "warning" },
+    { key: "translation", agent: "翻译 Agent", ability: "消息翻译 / 贸易术语", coverage: 92, status: "healthy" },
+    { key: "reply-suggestion", agent: "回复建议 Agent", ability: "多语回复 / 客户跟进", coverage: 88, status: "healthy" },
+    { key: "intent-analysis", agent: "客户意图分析 Agent", ability: "意图识别 / 风险判断", coverage: 76, status: "warning" },
   ],
   tasks,
 };
