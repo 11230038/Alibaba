@@ -9,7 +9,7 @@ export function StatusPage() {
   const { snapshot, loading, refreshing, refresh, createTestTask } = useStatusWorkbench();
 
   return (
-    <Space direction="vertical" size="large" className="w-full">
+    <Space orientation="vertical" size="large" className="w-full">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <Typography.Title level={2} className="!mb-1">系统状态</Typography.Title>
@@ -25,7 +25,7 @@ export function StatusPage() {
           {snapshot?.modules.map((module) => (
             <Col xs={24} md={8} key={module.id}>
               <Card size="small" title={module.name} extra={<StatusTag status={module.status} badge />}>
-                <Space direction="vertical" className="w-full">
+                <Space orientation="vertical" className="w-full">
                   <Statistic title="延迟" value={module.latency} suffix="ms" />
                   <Progress percent={healthScore(module.status)} status={module.status === "offline" ? "exception" : module.status === "warning" ? "active" : "success"} />
                 </Space>

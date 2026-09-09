@@ -1,5 +1,5 @@
-import { AgentPage } from "@/features/agent/AgentPage";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <AgentPage />;
+  redirect("/agent/llm");
 }

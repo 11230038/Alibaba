@@ -9,7 +9,7 @@ export function AgentTestModal({ agent, open, testing, onClose, onRun }: { agent
 
   return (
     <Modal title={`测试 ${agent?.name ?? "Agent"}`} open={open} onCancel={onClose} footer={null} width={720} destroyOnHidden>
-      <Space direction="vertical" className="w-full">
+      <Space orientation="vertical" className="w-full">
         <Input.TextArea rows={5} value={content} onChange={(event) => setContent(event.target.value)} placeholder="例如：客户询问样品费用和 CE 证书，帮我生成英文回复。" />
         <div className="flex justify-end gap-2">
           <Button onClick={onClose}>取消</Button>

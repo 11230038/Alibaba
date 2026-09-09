@@ -6,7 +6,7 @@ import type { ChatMessage } from "@/types/chat";
 
 export function MessageTimeline({ messages, onTranslate, onRegenerate, onOpenCard }: { messages: ChatMessage[]; onTranslate: (message: ChatMessage) => void; onRegenerate: (message: ChatMessage) => void; onOpenCard: (cardId: string) => void }) {
   return (
-    <Space direction="vertical" className="w-full" size="middle">
+    <Space orientation="vertical" className="w-full" size="middle">
       {messages.map((message) => {
         const isSeller = message.role === "seller";
         const isSystem = message.role === "system";
@@ -15,7 +15,7 @@ export function MessageTimeline({ messages, onTranslate, onRegenerate, onOpenCar
             <div className={`flex max-w-[78%] gap-3 ${isSeller ? "flex-row-reverse" : ""}`}>
               <Avatar style={{ backgroundColor: isSeller ? "#1677ff" : isSystem ? "#64748b" : "#10b981" }}>{isSeller ? "卖" : isSystem ? "系" : message.role === "card" ? "卡" : "买"}</Avatar>
               <Card size="small" className={isSeller ? "bg-blue-50" : isSystem ? "bg-slate-50" : "bg-white"}>
-                <Space direction="vertical" size={8} className="w-full">
+                <Space orientation="vertical" size={8} className="w-full">
                   <Typography.Text type="secondary" className="text-xs">{message.createdAt}</Typography.Text>
                   {message.card ? (
                     <BusinessCardView card={message.card} compact onClick={() => onOpenCard(message.card!.id)} />

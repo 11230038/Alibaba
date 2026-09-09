@@ -1,6 +1,6 @@
 "use client";
 
-import { AppstoreOutlined, CommentOutlined, DashboardOutlined, RobotOutlined } from "@ant-design/icons";
+import { AppstoreOutlined, CommentOutlined, DashboardOutlined, RobotOutlined, SelectOutlined, SettingOutlined } from "@ant-design/icons";
 import { Badge, Button, Layout, Menu, Space, Typography } from "antd";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -11,13 +11,29 @@ const { Header, Sider, Content } = Layout;
 const navItems = [
   { key: "/", icon: <DashboardOutlined />, label: <Link href="/">首页</Link> },
   { key: "/chat", icon: <CommentOutlined />, label: <Link href="/chat">聊天工作台</Link> },
-  { key: "/status", icon: <AppstoreOutlined />, label: <Link href="/status">系统状态</Link> },
-  { key: "/agent", icon: <RobotOutlined />, label: <Link href="/agent">Agent 控制台</Link> },
+  { key: "/batch", icon: <SelectOutlined />, label: <Link href="/batch">批量管理</Link> },
+  {
+    key: "/agent",
+    icon: <RobotOutlined />,
+    label: "自动化",
+    children: [
+      { key: "/agent/llm", icon: <SettingOutlined />, label: <Link href="/agent/llm">LLM</Link> },
+      { key: "/agent/agents", icon: <RobotOutlined />, label: <Link href="/agent/agents">Agent</Link> },
+    ],
+  },
+  { key: "/status", icon: <AppstoreOutlined />, label: <Link href="/status">设置</Link> },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const selectedKey = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`;
+  const selectedKey = pathname.startsWith("/agent/agents")
+    ? "/agent/agents"
+    : pathname.startsWith("/agent/llm")
+      ? "/agent/llm"
+      : pathname === "/"
+        ? "/"
+        : `/${pathname.split("/")[1]}`;
+  const openKeys = pathname.startsWith("/agent/") ? ["/agent"] : [];
 
   return (
     <Layout className="fixed inset-0 items-stretch overflow-hidden">
@@ -29,7 +45,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               外贸运营
             </Typography.Text>
           </div>
-          <Menu theme="dark" mode="inline" selectedKeys={[selectedKey]} items={navItems} className="flex-1 border-0" />
+          <Menu theme="dark" mode="inline" selectedKeys={[selectedKey]} defaultOpenKeys={openKeys} items={navItems} className="flex-1 border-0" />
         </div>
       </Sider>
       <Layout>

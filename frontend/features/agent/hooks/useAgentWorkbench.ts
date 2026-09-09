@@ -1,11 +1,11 @@
 "use client";
 
 import { App } from "antd";
-import { useEffect, useState } from "react";
+import { createContext, createElement, useContext, useEffect, useState, type ReactNode } from "react";
 import { backend } from "@/services/client";
 import type { AgentConfig, AgentConsoleState, LlmConfig } from "@/types/agent";
 
-export function useAgentWorkbench() {
+function useAgentWorkbenchController() {
   const { message } = App.useApp();
   const [state, setState] = useState<AgentConsoleState>();
   const [loading, setLoading] = useState(true);
@@ -83,4 +83,21 @@ export function useAgentWorkbench() {
   }
 
   return { state, loading, saveLlmConfig, toggleAgent, testAgentId, setTestAgentId, testing, runTest, deleteSession, branchSession, copySession };
+}
+
+type AgentWorkbench = ReturnType<typeof useAgentWorkbenchController>;
+const AgentWorkbenchContext = createContext<AgentWorkbench | null>(null);
+
+export function AgentWorkbenchProvider({ children }: { children: ReactNode }) {
+  const workbench = useAgentWorkbenchController();
+
+  return createElement(AgentWorkbenchContext.Provider, { value: workbench }, children);
+}
+
+export function useAgentWorkbench() {
+  const workbench = useContext(AgentWorkbenchContext);
+  if (!workbench) {
+    throw new Error("useAgentWorkbench must be used within AgentWorkbenchProvider");
+  }
+  return workbench;
 }

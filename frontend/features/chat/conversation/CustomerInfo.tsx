@@ -9,7 +9,7 @@ export function CustomerInfo({ conversation }: { conversation?: ConversationDeta
   const { customer, analysis } = conversation;
 
   return (
-    <Space direction="vertical" className="w-full" size="middle">
+    <Space orientation="vertical" className="w-full" size="middle">
       <Card title="客户信息">
         <Descriptions size="small" column={1} items={[
           { key: "name", label: "姓名", children: customer.name },
@@ -25,7 +25,7 @@ export function CustomerInfo({ conversation }: { conversation?: ConversationDeta
         </div>
       </Card>
       <Card title="行为与意图">
-        <Space direction="vertical" className="w-full">
+        <Space orientation="vertical" className="w-full">
           <div>
             <Typography.Text type="secondary">成交意向分</Typography.Text>
             <Progress percent={analysis.score} status={analysis.score > 80 ? "success" : "active"} />

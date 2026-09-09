@@ -6,7 +6,7 @@ import type { BusinessCard } from "@/types/cards";
 
 export function CardDetailDrawer({ card, open, onClose }: { card?: BusinessCard; open: boolean; onClose: () => void }) {
   return (
-    <Drawer title="业务卡片详情" width={520} open={open} onClose={onClose} destroyOnHidden>
+    <Drawer title="业务卡片详情" size={520} open={open} onClose={onClose} destroyOnHidden>
       {card ? (
         <div className="space-y-4">
           <BusinessCardView card={card} />

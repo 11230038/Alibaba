@@ -10,7 +10,7 @@ export function AssistantSuggestionModal({ open, suggestions, onClose, onInsert 
         dataSource={suggestions}
         renderItem={(item) => (
           <List.Item actions={[<Button key="insert" type="primary" onClick={() => onInsert(item.content)}>插入</Button>]}>
-            <Space direction="vertical" className="w-full">
+            <Space orientation="vertical" className="w-full">
               <Space><Typography.Text strong>{item.title}</Typography.Text><Tag>{item.tone}</Tag></Space>
               <Typography.Paragraph className="!mb-0">{item.content}</Typography.Paragraph>
             </Space>

@@ -11,7 +11,7 @@ export function BusinessCardView({ card, compact = false, onClick }: { card: Bus
       styles={{ body: { padding: compact ? 14 : 20 } }}
     >
       <div className="mb-4 h-2 rounded-full" style={{ background: card.coverTone }} />
-      <Space direction="vertical" size={compact ? 6 : 10} className="w-full">
+      <Space orientation="vertical" size={compact ? 6 : 10} className="w-full">
         <Space wrap>
           <Tag color="blue">{getCardTypeLabel(card.type)}</Tag>
           <Tag color={card.status === "published" ? "green" : card.status === "reviewing" ? "purple" : "default"}>{getCardStatusLabel(card.status)}</Tag>

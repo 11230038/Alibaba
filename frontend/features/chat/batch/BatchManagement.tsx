@@ -6,7 +6,7 @@ import { Button, Card, Space, Typography } from "antd";
 export function BatchManagement({ selectedCount, onSelectAll, onInvert, onClear, onExport, onMassSend }: { selectedCount: number; onSelectAll: () => void; onInvert: () => void; onClear: () => void; onExport: () => void; onMassSend: () => void }) {
   return (
     <Card size="small" title="批量管理">
-      <Space direction="vertical" className="w-full">
+      <Space orientation="vertical" className="w-full">
         <Typography.Text type="secondary">已选择 {selectedCount} 个会话</Typography.Text>
         <Space wrap>
           <Button size="small" onClick={onSelectAll}>全选</Button>

@@ -1,8 +1,7 @@
 "use client";
 
-import { App, Button, Card, Col, Row, Space, Spin, Typography } from "antd";
+import { Button, Card, Col, Row, Space, Spin, Typography } from "antd";
 import { CardDetailDrawer } from "@/components/CardDetailDrawer";
-import { BatchManagement } from "./batch/BatchManagement";
 import { ConversationList } from "./conversation/ConversationList";
 import { CustomerInfo } from "./conversation/CustomerInfo";
 import { MessageTimeline } from "./conversation/MessageTimeline";
@@ -12,12 +11,11 @@ import { ChatAnalysisModal } from "./modals/ChatAnalysisModal";
 import { ChatComposer } from "./workspace/ChatComposer";
 
 export function ChatPage() {
-  const { message } = App.useApp();
   const workbench = useChatWorkbench();
   const active = workbench.activeConversation;
 
   return (
-    <Space direction="vertical" size="large" className="w-full">
+    <Space orientation="vertical" size="large" className="w-full">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <Typography.Title level={2} className="!mb-1">聊天工作台</Typography.Title>
@@ -34,23 +32,11 @@ export function ChatPage() {
             <ConversationList
               conversations={workbench.conversations}
               activeId={active?.id}
-              selectedIds={workbench.selectedIds}
               groupMode={workbench.groupMode}
               onGroupModeChange={workbench.setGroupMode}
               onSelect={workbench.selectConversation}
-              onToggleSelected={workbench.toggleSelected}
             />
           </Card>
-          <div className="mt-4">
-            <BatchManagement
-              selectedCount={workbench.selectedIds.length}
-              onSelectAll={workbench.selectAll}
-              onInvert={workbench.invertSelection}
-              onClear={workbench.clearSelection}
-              onExport={workbench.exportSelected}
-              onMassSend={() => message.info("群发接口已预留，待后端接入")}
-            />
-          </div>
         </Col>
 
         <Col xs={24} xl={11}>
@@ -61,7 +47,7 @@ export function ChatPage() {
             {workbench.detailLoading ? (
               <div className="flex h-[520px] items-center justify-center"><Spin /></div>
             ) : active ? (
-              <Space direction="vertical" className="w-full" size="large">
+              <Space orientation="vertical" className="w-full" size="large">
                 <div className="max-h-[500px] overflow-y-auto pr-2">
                   <MessageTimeline
                     messages={active.messages}

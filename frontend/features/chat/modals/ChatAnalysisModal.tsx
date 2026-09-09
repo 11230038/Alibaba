@@ -8,7 +8,7 @@ export function ChatAnalysisModal({ open, analysis, onClose }: { open: boolean; 
   return (
     <Modal title="客户意图与阶段分析" open={open} onCancel={onClose} footer={null} width={680}>
       {analysis ? (
-        <Space direction="vertical" className="w-full">
+        <Space orientation="vertical" className="w-full">
           <Typography.Paragraph>{analysis.summary}</Typography.Paragraph>
           <Space><Tag color="blue">{analysis.intent}</Tag><Tag color="purple">{stageLabel(analysis.stage)}</Tag></Space>
           <Progress percent={analysis.score} status={analysis.score > 80 ? "success" : "active"} />
