@@ -1,12 +1,19 @@
 "use client";
 
-import { Card, Descriptions, List, Progress, Space, Tag, Typography } from "antd";
+import { Card, Descriptions, Drawer, Space, Tag } from "antd";
 import { stageLabel } from "@/domain/chat/chatModel";
 import type { ConversationDetail } from "@/types/chat";
 
-export function CustomerInfo({ conversation }: { conversation?: ConversationDetail }) {
-  if (!conversation) return <Card loading />;
-  const { customer, analysis } = conversation;
+export function CustomerInfo({ conversation, open, onClose }: { conversation?: ConversationDetail; open: boolean; onClose: () => void }) {
+  return (
+    <Drawer title="客户详情" size={520} open={open} onClose={onClose} destroyOnHidden>
+      {conversation ? <CustomerInfoContent conversation={conversation} /> : null}
+    </Drawer>
+  );
+}
+
+function CustomerInfoContent({ conversation }: { conversation: ConversationDetail }) {
+  const { customer } = conversation;
 
   return (
     <Space orientation="vertical" className="w-full" size="middle">
@@ -23,17 +30,6 @@ export function CustomerInfo({ conversation }: { conversation?: ConversationDeta
         <div className="mt-3">
           {customer.tags.map((tag) => <Tag key={tag} color="blue">{tag}</Tag>)}
         </div>
-      </Card>
-      <Card title="行为与意图">
-        <Space orientation="vertical" className="w-full">
-          <div>
-            <Typography.Text type="secondary">成交意向分</Typography.Text>
-            <Progress percent={analysis.score} status={analysis.score > 80 ? "success" : "active"} />
-          </div>
-          <Typography.Paragraph>{analysis.summary}</Typography.Paragraph>
-          <List size="small" header="近期行为" dataSource={customer.behavior} renderItem={(item) => <List.Item>{item}</List.Item>} />
-          <List size="small" header="下一步动作" dataSource={analysis.nextActions} renderItem={(item) => <List.Item>{item}</List.Item>} />
-        </Space>
       </Card>
     </Space>
   );

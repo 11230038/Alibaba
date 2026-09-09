@@ -4,14 +4,22 @@ import { AppstoreOutlined, CommentOutlined, DashboardOutlined, RobotOutlined, Se
 import { Badge, Button, Layout, Menu, Space, Typography } from "antd";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import type { ReactNode } from "react";
 
 const { Header, Sider, Content } = Layout;
 
 const navItems = [
   { key: "/", icon: <DashboardOutlined />, label: <Link href="/">首页</Link> },
-  { key: "/chat", icon: <CommentOutlined />, label: <Link href="/chat">聊天工作台</Link> },
-  { key: "/batch", icon: <SelectOutlined />, label: <Link href="/batch">批量管理</Link> },
+  {
+    key: "/chat",
+    icon: <CommentOutlined />,
+    label: "聊天工作台",
+    children: [
+      { key: "/chat/customer-sessions", icon: <CommentOutlined />, label: <Link href="/chat/customer-sessions">客户会话</Link> },
+    ],
+  },
+  { key: "/batch", icon: <SelectOutlined />, label: <Link href="/batch">会话管理</Link> },
   {
     key: "/agent",
     icon: <RobotOutlined />,
@@ -21,8 +29,31 @@ const navItems = [
       { key: "/agent/agents", icon: <RobotOutlined />, label: <Link href="/agent/agents">Agent</Link> },
     ],
   },
-  { key: "/status", icon: <AppstoreOutlined />, label: <Link href="/status">设置</Link> },
+  {
+    key: "/settings",
+    icon: <SettingOutlined />,
+    label: "设置",
+    children: [
+      { key: "/status", icon: <AppstoreOutlined />, label: <Link href="/status">系统状态</Link> },
+    ],
+  },
 ];
+
+function NavigationMenu({ selectedKey, routeOpenKeys }: { selectedKey: string; routeOpenKeys: string[] }) {
+  const [openKeys, setOpenKeys] = useState(routeOpenKeys);
+
+  return (
+    <Menu
+      theme="dark"
+      mode="inline"
+      selectedKeys={[selectedKey]}
+      openKeys={openKeys}
+      onOpenChange={setOpenKeys}
+      items={navItems}
+      className="flex-1 border-0"
+    />
+  );
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -30,11 +61,20 @@ export function AppShell({ children }: { children: ReactNode }) {
     ? "/agent/agents"
     : pathname.startsWith("/agent/llm")
       ? "/agent/llm"
-      : pathname === "/"
-        ? "/"
-        : `/${pathname.split("/")[1]}`;
-  const openKeys = pathname.startsWith("/agent/") ? ["/agent"] : [];
-
+      : pathname === "/chat" || pathname.startsWith("/chat/customer-sessions")
+        ? "/chat/customer-sessions"
+        : pathname.startsWith("/status")
+          ? "/status"
+          : pathname === "/"
+            ? "/"
+            : `/${pathname.split("/")[1]}`;
+  const openKeys = pathname === "/chat" || pathname.startsWith("/chat/")
+    ? ["/chat"]
+    : pathname.startsWith("/agent/")
+      ? ["/agent"]
+      : pathname.startsWith("/status")
+        ? ["/settings"]
+        : [];
   return (
     <Layout className="fixed inset-0 items-stretch overflow-hidden">
       <Sider width={232} breakpoint="lg" collapsedWidth="0" className="h-full overflow-y-auto shadow-xl">
@@ -45,7 +85,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               外贸运营
             </Typography.Text>
           </div>
-          <Menu theme="dark" mode="inline" selectedKeys={[selectedKey]} defaultOpenKeys={openKeys} items={navItems} className="flex-1 border-0" />
+          <NavigationMenu key={openKeys.join("|") || "root"} selectedKey={selectedKey} routeOpenKeys={openKeys} />
         </div>
       </Sider>
       <Layout>

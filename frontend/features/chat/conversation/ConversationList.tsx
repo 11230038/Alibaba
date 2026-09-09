@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, Checkbox, List, Radio, Space, Typography } from "antd";
+import { Badge, Checkbox, Listy, Radio, Space, Typography } from "antd";
 import { groupConversations, sortConversations } from "@/domain/chat/chatModel";
 import type { Conversation } from "@/types/chat";
 import { StatusTag } from "@/components/StatusTag";
@@ -38,10 +38,12 @@ export function ConversationList({
       {groups.map((group) => (
         <div key={group.label}>
           <Typography.Text type="secondary" className="px-1 text-xs">{group.label}</Typography.Text>
-          <List
-            dataSource={group.items}
-            renderItem={(item) => (
-              <List.Item
+          <Listy
+            items={group.items}
+            rowKey="id"
+            virtual={false}
+            itemRender={(item: Conversation) => (
+              <div
                 className={`cursor-pointer rounded-lg px-2 ${activeId === item.id ? "bg-blue-50" : "hover:bg-slate-50"}`}
                 onClick={() => onSelect?.(item.id)}
               >
@@ -60,7 +62,7 @@ export function ConversationList({
                     </div>
                   </div>
                 </div>
-              </List.Item>
+              </div>
             )}
           />
         </div>

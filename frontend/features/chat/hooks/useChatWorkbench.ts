@@ -1,7 +1,7 @@
 "use client";
 
 import { App } from "antd";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { backend } from "@/services/client";
 import type { AssistantSuggestion, ChatMessage, ConversationDetail } from "@/types/chat";
 import { useConversationSummaries } from "./useConversationSummaries";
@@ -15,6 +15,7 @@ export function useChatWorkbench() {
   const [suggestions, setSuggestions] = useState<AssistantSuggestion[]>([]);
   const [suggestionOpen, setSuggestionOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [translationVisible, setTranslationVisible] = useState(false);
   const [groupMode, setGroupMode] = useState<"time" | "status">("time");
   const [activeCardId, setActiveCardId] = useState<string>();
 
@@ -22,6 +23,7 @@ export function useChatWorkbench() {
     setDetailLoading(true);
     const detail = await backend.getConversation(id);
     setActiveConversation(detail);
+    setTranslationVisible(false);
     setDetailLoading(false);
   }, []);
 
@@ -44,7 +46,36 @@ export function useChatWorkbench() {
       ...activeConversation,
       messages: activeConversation.messages.map((item) => (item.id === result.messageId ? { ...item, translatedContent: result.translatedContent } : item)),
     });
+    setTranslationVisible(true);
     message.success(regenerate ? "已重新翻译" : "已翻译消息");
+  }
+
+  async function translateConversation() {
+    if (!activeConversation) return;
+    const buyerMessages = activeConversation.messages.filter((item) => item.role === "buyer");
+    const translatedMessages = await Promise.all(
+      buyerMessages.map(async (item) => {
+        const result = await backend.translateMessage({ conversationId: activeConversation.id, messageId: item.id, targetLanguage: "zh-CN" });
+        return { messageId: result.messageId, translatedContent: result.translatedContent };
+      }),
+    );
+    setActiveConversation({
+      ...activeConversation,
+      messages: activeConversation.messages.map((item) => {
+        const translated = translatedMessages.find((result) => result.messageId === item.id);
+        return translated ? { ...item, translatedContent: translated.translatedContent } : item;
+      }),
+    });
+    setTranslationVisible(true);
+    message.success("已翻译当前会话");
+  }
+
+  function toggleTranslation() {
+    if (translationVisible) {
+      setTranslationVisible(false);
+      return;
+    }
+    void translateConversation();
   }
 
   async function openSuggestions() {
@@ -92,6 +123,8 @@ export function useChatWorkbench() {
     setDraft,
     selectConversation,
     translate,
+    translationVisible,
+    toggleTranslation,
     suggestions,
     suggestionOpen,
     setSuggestionOpen,

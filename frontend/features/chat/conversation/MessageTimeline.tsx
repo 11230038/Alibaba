@@ -4,7 +4,7 @@ import { Avatar, Button, Card, Space, Typography } from "antd";
 import { BusinessCardView } from "@/components/BusinessCardView";
 import type { ChatMessage } from "@/types/chat";
 
-export function MessageTimeline({ messages, onTranslate, onRegenerate, onOpenCard }: { messages: ChatMessage[]; onTranslate: (message: ChatMessage) => void; onRegenerate: (message: ChatMessage) => void; onOpenCard: (cardId: string) => void }) {
+export function MessageTimeline({ messages, showTranslations = true, onRegenerate, onOpenCard }: { messages: ChatMessage[]; showTranslations?: boolean; onRegenerate: (message: ChatMessage) => void; onOpenCard: (cardId: string) => void }) {
   return (
     <Space orientation="vertical" className="w-full" size="middle">
       {messages.map((message) => {
@@ -22,15 +22,12 @@ export function MessageTimeline({ messages, onTranslate, onRegenerate, onOpenCar
                   ) : (
                     <Typography.Paragraph className="!mb-0 whitespace-pre-wrap">{message.content}</Typography.Paragraph>
                   )}
-                  {message.translatedContent ? (
+                  {showTranslations && message.translatedContent ? (
                     <Typography.Paragraph className="!mb-0 rounded-lg bg-white/70 p-2 text-slate-600">译文：{message.translatedContent}</Typography.Paragraph>
                   ) : null}
-                  {message.role === "buyer" && (
-                    <Space>
-                      <Button size="small" type="link" onClick={() => onTranslate(message)}>翻译</Button>
-                      <Button size="small" type="link" onClick={() => onRegenerate(message)}>重新翻译</Button>
-                    </Space>
-                  )}
+                  {showTranslations && message.role === "buyer" && message.translatedContent ? (
+                    <Button size="small" type="link" onClick={() => onRegenerate(message)}>重新翻译</Button>
+                  ) : null}
                 </Space>
               </Card>
             </div>
