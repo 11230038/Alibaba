@@ -1,13 +1,13 @@
 "use client";
 
-import { DeleteOutlined, EditOutlined, ReloadOutlined, CopyOutlined, ForkOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EditOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Button, Card, Popconfirm, Space, Switch, Table, Tag, Typography } from "antd";
 import { useState } from "react";
 import { StatusTag } from "@/components/StatusTag";
-import { agentCategoryLabel, filterAgentTestSessionsByCategory, filterAgentsByCategory } from "@/domain/agent/agentModel";
-import type { AgentConfig, AgentTestSession } from "@/types/agent";
+import { HydrationSafeTable } from "@/components/HydrationSafeTable";
+import { agentCategoryLabel, filterAgentsByCategory } from "@/domain/agent/agentModel";
+import type { AgentConfig } from "@/types/agent";
 import { AgentEditModal, type AgentEditValues } from "./AgentEditModal";
-import { AgentTestModal } from "./AgentTestModal";
 import { useAgentWorkbench } from "./hooks/useAgentWorkbench";
 
 type AgentCategory = AgentConfig["category"];
@@ -20,11 +20,7 @@ export function AgentPage({ category }: AgentPageProps) {
   const workbench = useAgentWorkbench();
   const agents = workbench.state?.agents ?? [];
   const visibleAgents = category ? filterAgentsByCategory(agents, category) : agents;
-  const visibleHistory = category
-    ? filterAgentTestSessionsByCategory(workbench.state?.history ?? [], agents, category)
-    : workbench.state?.history ?? [];
   const [editingAgent, setEditingAgent] = useState<AgentConfig>();
-  const activeAgent = agents.find((agent) => agent.id === workbench.testAgentId);
   const title = category ? agentCategoryLabel(category) : "Agent";
 
   async function handleSave(values: AgentEditValues) {
@@ -45,34 +41,7 @@ export function AgentPage({ category }: AgentPageProps) {
         </>
       )}
 
-      <Card title="测试历史">
-        <Table
-          rowKey="id"
-          dataSource={visibleHistory}
-          loading={workbench.loading}
-          expandable={{ expandedRowRender: (record) => <Space orientation="vertical">{record.messages.map((item) => <Typography.Paragraph key={item.id} className="!mb-0"><Tag>{item.role}</Tag>{item.content}</Typography.Paragraph>)}</Space> }}
-          columns={[
-            { title: "标题", dataIndex: "title" },
-            { title: "Agent", dataIndex: "agentId", render: (value) => agents.find((agent) => agent.id === value)?.name ?? value },
-            { title: "创建时间", dataIndex: "createdAt" },
-            {
-              title: "操作",
-              render: (_: unknown, record: AgentTestSession) => (
-                <Space>
-                  <Button icon={<CopyOutlined />} onClick={() => workbench.copySession(record.id)}>复制</Button>
-                  <Button icon={<ForkOutlined />} onClick={() => workbench.branchSession(record.id)}>分支</Button>
-                  <Popconfirm title="确认删除这条测试历史？" onConfirm={() => workbench.deleteSession(record.id)}>
-                    <Button danger icon={<DeleteOutlined />}>删除</Button>
-                  </Popconfirm>
-                </Space>
-              ),
-            },
-          ]}
-        />
-      </Card>
-
       <AgentEditModal agent={editingAgent} open={Boolean(editingAgent)} saving={Boolean(editingAgent && workbench.agentMutationId === editingAgent.id)} onClose={() => setEditingAgent(undefined)} onSave={handleSave} />
-      <AgentTestModal agent={activeAgent} open={Boolean(activeAgent && workbench.testAgentId)} testing={workbench.testing} onClose={() => workbench.setTestAgentId(undefined)} onRun={workbench.runTest} />
     </Space>
   );
 }
@@ -84,6 +53,7 @@ function AgentGroupTable({ title, category, agents, loading, mutationId, onToggl
         rowKey="id"
         dataSource={agents}
         loading={loading}
+        components={{ table: HydrationSafeTable }}
         columns={[
           { title: "名称", dataIndex: "name" },
           { title: "类型", dataIndex: "category", render: (value: AgentCategory) => <StatusTag status={value} /> },

@@ -12,26 +12,24 @@ export function BatchPage() {
   return (
     <Space orientation="vertical" size="large" className="w-full">
       <Typography.Title level={2} className="!mb-1">批量管理</Typography.Title>
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <Card title="选择会话" loading={workbench.loading} className="min-h-[720px]">
-          <ConversationList
-            conversations={workbench.conversations}
-            selectedIds={workbench.selectedIds}
-            groupMode={workbench.groupMode}
-            onGroupModeChange={workbench.setGroupMode}
-            onToggleSelected={workbench.toggleSelected}
-            selectable
-          />
-        </Card>
-        <BatchManagement
-          selectedCount={workbench.selectedCount}
-          onSelectAll={workbench.selectAll}
-          onInvert={workbench.invertSelection}
-          onClear={workbench.clearSelection}
-          onExport={workbench.exportSelected}
-          onMassSend={() => message.info("群发接口已预留，待后端接入")}
+      <BatchManagement
+        selectedCount={workbench.selectedCount}
+        onSelectAll={workbench.selectAll}
+        onInvert={workbench.invertSelection}
+        onClear={workbench.clearSelection}
+        onExport={workbench.exportSelected}
+        onMassSend={() => message.info("群发接口已预留，待后端接入")}
+      />
+      <Card title="选择会话" loading={workbench.loading} className="min-h-[720px]">
+        <ConversationList
+          conversations={workbench.conversations}
+          selectedIds={workbench.selectedIds}
+          groupMode={workbench.groupMode}
+          onGroupModeChange={workbench.setGroupMode}
+          onToggleSelected={workbench.toggleSelected}
+          selectable
         />
-      </div>
+      </Card>
     </Space>
   );
 }

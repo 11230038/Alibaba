@@ -4,6 +4,7 @@ import { EditOutlined, SaveOutlined } from "@ant-design/icons";
 import { Button, Card, Descriptions, Form, Input, InputNumber, Modal, Space, Table, Tag, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import type { LlmLevelConfig } from "@/types/agent";
+import { HydrationSafeTable } from "@/components/HydrationSafeTable";
 import { useAgentWorkbench } from "./hooks/useAgentWorkbench";
 
 type LlmLevelFormValues = Omit<LlmLevelConfig, "level">;
@@ -90,6 +91,7 @@ export function LlmPage() {
           rowKey="level"
           dataSource={levels}
           scroll={{ x: 980 }}
+          components={{ table: HydrationSafeTable }}
           expandable={{
             expandedRowRender: (record) => (
               <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small" bordered>

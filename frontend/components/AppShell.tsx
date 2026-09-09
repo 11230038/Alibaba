@@ -17,6 +17,7 @@ const navItems = [
     label: "聊天工作台",
     children: [
       { key: "/chat/customer-sessions", icon: <CommentOutlined />, label: <Link href="/chat/customer-sessions">客户会话</Link> },
+      { key: "/chat/agent-sessions", icon: <RobotOutlined />, label: <Link href="/chat/agent-sessions">agent会话</Link> },
     ],
   },
   { key: "/batch", icon: <SelectOutlined />, label: <Link href="/batch">会话管理</Link> },
@@ -58,7 +59,9 @@ function NavigationMenu({ selectedKey, routeOpenKeys }: { selectedKey: string; r
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const selectedKey = pathname.startsWith("/agent/system-agents")
+  const selectedKey = pathname.startsWith("/chat/agent-sessions")
+    ? "/chat/agent-sessions"
+    : pathname.startsWith("/agent/system-agents")
     ? "/agent/system-agents"
     : pathname.startsWith("/agent/regular-agents")
       ? "/agent/regular-agents"
