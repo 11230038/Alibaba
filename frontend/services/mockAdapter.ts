@@ -6,6 +6,7 @@ import { mockSelfInfo } from "@/mock/selfData";
 import { keyStatus, nodeResult, proxyStatus, receiverStatus, systemStatus, taskSnapshots } from "@/mock/statusData";
 import { buildConversationExport, conversationToTuples, replySuggestionsToAssistantSuggestions, toConversationDetail, toConversationSummary } from "@/domain/chat/chatModel";
 import { buildSystemStatusSnapshot, taskSnapshotToTaskItem } from "@/domain/status/statusModel";
+import { getLatestAgentTestTurn, removeLatestAgentTestTurn, replaceLatestAgentTestReply } from "@/domain/agent/agentModel";
 import type { AgentConfig, AgentConsoleState, AgentPreset, AgentTestSession, DocumentLlmConfig, LlmConfig } from "@/types/agent";
 import type { BusinessCard } from "@/types/cards";
 import type { ConversationDetail, CrmConversation, CrmMessage, SendChatMessageInput, UserInfo } from "@/types/chat";
@@ -189,6 +190,12 @@ export const mockBackend: OperationsBackend = {
     return delay(taskSnapshotToTaskItem(snapshot));
   },
 
+  deleteTask: async (id) => {
+    taskSnapshotStore = taskSnapshotStore.filter((task) => task.task_id !== id);
+    statusStore = buildStatusSnapshot();
+    return delay(undefined);
+  },
+
   getAgentConsole: () => delay(structuredClone(consoleStore)),
 
   saveLlmConfig: async (input) => {
@@ -288,6 +295,30 @@ export const mockBackend: OperationsBackend = {
 
   listAgentTestHistory: () => delay(structuredClone(consoleStore.history)),
 
+  undoAgentTestSession: async (id) => {
+    const source = getAgentSession(id);
+    const session = removeLatestAgentTestTurn(source);
+    if (!session) throw new Error("会话没有可撤销的完整问答轮次");
+    consoleStore = { ...consoleStore, history: consoleStore.history.map((item) => item.id === id ? session : item) };
+    return delay(structuredClone(session), 420);
+  },
+
+  regenerateAgentTestSessionReply: async (id) => {
+    const source = getAgentSession(id);
+    const turn = getLatestAgentTestTurn(source);
+    if (!turn) throw new Error("会话没有可重新回复的完整问答轮次");
+    const reply = {
+      ...turn.assistant,
+      id: `assistant-${Date.now()}`,
+      content: `模拟重新回复：已根据“${turn.user.content}”生成新的处理建议。`,
+      createdAt: nowText(),
+    };
+    const session = replaceLatestAgentTestReply(source, reply);
+    if (!session) throw new Error("会话没有可重新回复的完整问答轮次");
+    consoleStore = { ...consoleStore, history: consoleStore.history.map((item) => item.id === id ? session : item) };
+    return delay(structuredClone(session), 520);
+  },
+
   deleteAgentTestSession: async (id) => {
     consoleStore = { ...consoleStore, history: consoleStore.history.filter((session) => session.id !== id) };
     return delay(undefined);
@@ -367,6 +398,12 @@ function executeSendChatMessage(input: SendChatMessageInput) {
 
 function resolveUser(identifier: string) {
   return userStore.find((user) => [user.ali_id, user.login_id, user.encrypt_account_id, user.ali_member_id].includes(identifier));
+}
+
+function getAgentSession(id: string) {
+  const session = consoleStore.history.find((item) => item.id === id);
+  if (!session) throw new Error("Agent 会话不存在");
+  return session;
 }
 
 function buildStatusSnapshot() {

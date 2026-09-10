@@ -1,11 +1,16 @@
 "use client";
 
-import { AppstoreOutlined, CommentOutlined, DashboardOutlined, RobotOutlined, SelectOutlined, SettingOutlined } from "@ant-design/icons";
-import { Layout, Menu, Typography } from "antd";
+import { AppstoreOutlined, CommentOutlined, DashboardOutlined, FileTextOutlined, MenuFoldOutlined, MenuUnfoldOutlined, RobotOutlined, SelectOutlined, SettingOutlined, UserOutlined } from "@ant-design/icons";
+import { Avatar, Button, Layout, Menu, Tooltip, Typography } from "antd";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { useEffect } from "react";
+import { CustomerInfo } from "@/features/chat/conversation/CustomerInfo";
+import { fallbackAvatarUrl, sellerAvatarUrl } from "@/domain/chat/avatarModel";
+import { backend } from "@/services/client";
+import type { SelfInfo } from "@/types/home";
 
 const { Header, Sider, Content } = Layout;
 
@@ -27,6 +32,7 @@ const navItems = [
     label: "自动化",
     children: [
       { key: "/agent/llm", icon: <SettingOutlined />, label: <Link href="/agent/llm">LLM</Link> },
+      { key: "/agent/system-prompt", icon: <FileTextOutlined />, label: <Link href="/agent/system-prompt">全局 SYSTEM_PROMPT</Link> },
       { key: "/agent/system-agents", icon: <RobotOutlined />, label: <Link href="/agent/system-agents">系统 Agent</Link> },
       { key: "/agent/regular-agents", icon: <RobotOutlined />, label: <Link href="/agent/regular-agents">普通 Agent</Link> },
     ],
@@ -59,10 +65,24 @@ function NavigationMenu({ selectedKey, routeOpenKeys }: { selectedKey: string; r
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+  const [selfInfo, setSelfInfo] = useState<SelfInfo | null>();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [avatarSource, setAvatarSource] = useState(fallbackAvatarUrl);
+
+  useEffect(() => {
+    void backend.getSelfInfo().then((info) => {
+      setSelfInfo(info);
+      if (info) setAvatarSource(sellerAvatarUrl);
+    });
+  }, []);
+
   const selectedKey = pathname.startsWith("/chat/agent-sessions")
     ? "/chat/agent-sessions"
     : pathname.startsWith("/agent/system-agents")
     ? "/agent/system-agents"
+    : pathname.startsWith("/agent/system-prompt")
+    ? "/agent/system-prompt"
     : pathname.startsWith("/agent/regular-agents")
       ? "/agent/regular-agents"
       : pathname.startsWith("/agent/llm")
@@ -83,27 +103,70 @@ export function AppShell({ children }: { children: ReactNode }) {
         : [];
   return (
     <Layout className="fixed inset-0 min-h-0 items-stretch overflow-hidden">
-      <Sider width={232} breakpoint="lg" collapsedWidth="0" className="h-full overflow-y-auto shadow-xl">
+      <Sider
+        width={232}
+        breakpoint="lg"
+        collapsed={collapsed}
+        collapsedWidth={72}
+        trigger={null}
+        onCollapse={setCollapsed}
+        onBreakpoint={setCollapsed}
+        className="h-full overflow-y-auto shadow-xl"
+      >
         <div className="flex h-full min-h-0 flex-col">
-          <div className="flex h-16 items-center gap-3 px-5 text-white">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500 font-bold">AI</div>
-            <Typography.Text className="!text-white" strong>
-              外贸运营
-            </Typography.Text>
+          <div className={`flex h-16 items-center text-white ${collapsed ? "justify-center" : "gap-3 px-5"}`}>
+            {collapsed ? (
+              <Tooltip title="展开侧边栏" placement="right">
+                <Button
+                  type="text"
+                  aria-label="展开侧边栏"
+                  className="!text-white"
+                  icon={<MenuUnfoldOutlined />}
+                  onClick={() => setCollapsed(false)}
+                />
+              </Tooltip>
+            ) : (
+              <>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500 font-bold">AI</div>
+                <Typography.Text className="!text-white" strong>外贸运营</Typography.Text>
+                <Tooltip title="折叠侧边栏" placement="right">
+                  <Button
+                    type="text"
+                    aria-label="折叠侧边栏"
+                    className="!ml-auto !text-white"
+                    icon={<MenuFoldOutlined />}
+                    onClick={() => setCollapsed(true)}
+                  />
+                </Tooltip>
+              </>
+            )}
           </div>
           <NavigationMenu key={openKeys.join("|") || "root"} selectedKey={selectedKey} routeOpenKeys={openKeys} />
         </div>
       </Sider>
       <Layout className="min-h-0">
         <Header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-100 px-6 shadow-sm">
-          <Typography.Title level={4} className="!mb-0">
+          <Typography.Title level={4} className="!mb-0 truncate">
             阿里国际站运营助手
           </Typography.Title>
+          <Button type="text" className="flex items-center gap-2" aria-label="打开个人信息" onClick={() => setProfileOpen(true)}>
+            <Avatar
+              size="small"
+              src={avatarSource}
+              icon={<UserOutlined />}
+              onError={() => {
+                setAvatarSource(fallbackAvatarUrl);
+                return true;
+              }}
+            />
+            <span className="hidden max-w-40 truncate md:inline">测试用户</span>
+          </Button>
         </Header>
         <Content className="min-h-0 overflow-y-auto p-6">
           <div className="mx-auto max-w-[1480px]">{children}</div>
         </Content>
       </Layout>
+      <CustomerInfo selfInfo={selfInfo ?? undefined} open={profileOpen} onClose={() => setProfileOpen(false)} />
     </Layout>
   );
 }

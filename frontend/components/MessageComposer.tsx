@@ -7,6 +7,7 @@ import type { MenuProps } from "antd";
 export type MessageComposerTool = {
   key: string;
   label: string;
+  disabled?: boolean;
 };
 
 type MessageComposerProps = {
@@ -30,7 +31,7 @@ export function MessageComposer({
   loading = false,
   onSend,
 }: MessageComposerProps) {
-  const menuItems: MenuProps["items"] = tools.map((tool) => ({ key: tool.key, label: tool.label }));
+  const menuItems: MenuProps["items"] = tools.map((tool) => ({ key: tool.key, label: tool.label, disabled: tool.disabled }));
 
   return (
     <Space.Compact className="w-full" orientation="vertical">

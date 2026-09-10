@@ -1,17 +1,26 @@
 "use client";
 
-import { ExperimentOutlined, ReloadOutlined } from "@ant-design/icons";
-import { Button, Card, Col, Empty, Row, Space, Table, Tag, Typography } from "antd";
+import { DeleteOutlined, ExperimentOutlined, ReloadOutlined } from "@ant-design/icons";
+import { Button, Card, Col, Empty, Row, Space, Table, Typography } from "antd";
+import { ActionConfirmModal } from "@/components/ActionConfirmModal";
 import { HydrationSafeTable } from "@/components/HydrationSafeTable";
 import { StatusTag } from "@/components/StatusTag";
+import { useState } from "react";
 import type { HealthModule, TaskItem } from "@/types/status";
 import { useStatusWorkbench } from "./hooks/useStatusWorkbench";
 
 const healthModuleIds = ["health-identity", "health-proxy", "health-receiver"] as const;
 
 export function StatusPage() {
-  const { snapshot, loading, refreshing, refresh, createTestTask } = useStatusWorkbench();
+  const { snapshot, loading, refreshing, refresh, createTestTask, deleteTask, deletingTaskId } = useStatusWorkbench();
+  const [pendingDeleteTask, setPendingDeleteTask] = useState<TaskItem>();
   const modules = healthModuleIds.map((id) => snapshot?.modules.find((module) => module.id === id)).filter((module): module is HealthModule => Boolean(module));
+
+  async function handleDeleteConfirm() {
+    if (!pendingDeleteTask) return;
+    await deleteTask(pendingDeleteTask.id);
+    setPendingDeleteTask(undefined);
+  }
 
   return (
     <Space orientation="vertical" size="large" className="w-full">
@@ -47,11 +56,37 @@ export function StatusPage() {
             { title: "创建时间", dataIndex: "createdAt", width: 180 },
             { title: "状态", dataIndex: "status", width: 120, render: (value: TaskItem["status"]) => <StatusTag status={value} /> },
             { title: "结果", dataIndex: "remark", minWidth: 280 },
-            { title: "操作", key: "action", width: 80, render: () => <Tag>详情</Tag> },
+            {
+              title: "操作",
+              key: "action",
+              width: 100,
+              render: (_: unknown, task: TaskItem) => (
+                <Button danger type="link" icon={<DeleteOutlined />} onClick={() => setPendingDeleteTask(task)}>
+                  删除
+                </Button>
+              ),
+            },
           ]}
           locale={{ emptyText: "暂无任务" }}
         />
       </Card>
+
+      <ActionConfirmModal
+        title="删除任务"
+        open={Boolean(pendingDeleteTask)}
+        warning="确认删除以下任务？删除后无法恢复。"
+        okText="删除"
+        loading={Boolean(pendingDeleteTask && deletingTaskId === pendingDeleteTask.id)}
+        onCancel={() => setPendingDeleteTask(undefined)}
+        onConfirm={handleDeleteConfirm}
+        details={pendingDeleteTask ? [
+          { label: "任务 ID", value: pendingDeleteTask.id },
+          { label: "操作类型", value: pendingDeleteTask.type },
+          { label: "状态", value: pendingDeleteTask.status },
+          { label: "创建时间", value: pendingDeleteTask.createdAt },
+          { label: "结果", value: pendingDeleteTask.remark || "暂无结果", span: 2 },
+        ] : undefined}
+      />
     </Space>
   );
 }

@@ -120,5 +120,25 @@ export const agentConsole: AgentConsoleState = {
         { id: "h1-m1", role: "user", content: "客户询问彩盒成本和交期，如何回复？", createdAt: "2026-08-11T09:23:00+08:00" },
       ],
     },
+    {
+      id: "hist-002",
+      title: "GreenMart MOQ 跟进",
+      agentId: "agent-quote",
+      createdAt: "2026-09-08T14:36:00+08:00",
+      messages: [
+        { id: "h2-m1", role: "user", content: "客户认为 500 件的 MOQ 太高，请给一条兼顾利润和成交率的英文回复。", createdAt: "2026-09-08T14:36:00+08:00" },
+        { id: "h2-m2", role: "assistant", content: "Thank you for your feedback. We can offer a trial order of 300 units at a slightly adjusted unit price, and apply the standard price once the order reaches 500 units.", createdAt: "2026-09-08T14:36:08+08:00" },
+      ],
+    },
+    {
+      id: "hist-003",
+      title: "Ocean Retail 付款风险审阅",
+      agentId: "agent-risk",
+      createdAt: "2026-09-09T10:18:00+08:00",
+      messages: [
+        { id: "h3-m1", role: "user", content: "客户要求先发货、收货后 60 天付款，请评估风险并给出建议。", createdAt: "2026-09-09T10:18:00+08:00" },
+        { id: "h3-m2", role: "assistant", content: "该账期会显著增加回款与拒付风险。建议先核验客户资信，并采用 30% 预付款、余款见提单副本支付；若必须提供账期，应配置出口信用保险和明确的授信额度。", createdAt: "2026-09-09T10:18:09+08:00" },
+      ],
+    },
   ],
 };

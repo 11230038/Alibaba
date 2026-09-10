@@ -1,6 +1,7 @@
 "use client";
 
 import { Avatar, Badge, Checkbox, Listy, Radio, Space, Typography } from "antd";
+import { conversationAvatarUrl } from "@/domain/chat/avatarModel";
 import { groupConversations, sortConversations } from "@/domain/chat/chatModel";
 import type { Conversation } from "@/types/chat";
 import { StatusTag } from "@/components/StatusTag";
@@ -49,7 +50,7 @@ export function ConversationList({
               >
                 <div className="flex w-full gap-2">
                   {selectable ? <Checkbox checked={selectedIds.includes(item.id)} onClick={(event) => event.stopPropagation()} onChange={() => onToggleSelected?.(item.id)} /> : null}
-                  <Avatar src={avatarUrl(item.id)} size={40} />
+                  <Avatar src={conversationAvatarUrl(item.id)} size={40} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <Typography.Text strong ellipsis>{item.customer.name}</Typography.Text>
@@ -70,9 +71,4 @@ export function ConversationList({
       ))}
     </Space>
   );
-}
-
-function avatarUrl(id: string) {
-  const seed = Array.from(id).reduce((total, character) => total + character.charCodeAt(0), 0);
-  return `https://i.pravatar.cc/80?img=${(seed % 70) + 1}`;
 }

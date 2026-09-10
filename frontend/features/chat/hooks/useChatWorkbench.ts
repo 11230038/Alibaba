@@ -7,11 +7,12 @@ import type { AssistantSuggestion, ChatMessage, ConversationDetail } from "@/typ
 import { useConversationSummaries } from "./useConversationSummaries";
 
 export function useChatWorkbench() {
-  const { message, modal } = App.useApp();
+  const { message } = App.useApp();
   const { conversations, loading, reload } = useConversationSummaries();
   const [activeConversation, setActiveConversation] = useState<ConversationDetail>();
   const [detailLoading, setDetailLoading] = useState(false);
   const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
   const [suggestions, setSuggestions] = useState<AssistantSuggestion[]>([]);
   const [suggestionOpen, setSuggestionOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
@@ -90,26 +91,23 @@ export function useChatWorkbench() {
     message.success("已插入到回复框");
   }
 
-  function confirmSend() {
-    if (!activeConversation || !draft.trim()) return;
-    modal.confirm({
-      title: "确认发送回复？",
-      content: "当前为 mock 发送，真实 CRM/聊天接口已通过 sendMessage 预留。",
-      okText: "确认发送",
-      cancelText: "再编辑一下",
-      onOk: async () => {
-        const result = await backend.sendMessage({
-          conversationId: activeConversation.id,
-          content: draft.trim(),
-          contact: activeConversation.customer.aliId,
-          action: "send",
-        });
-        setActiveConversation(result.conversation);
-        setDraft("");
-        await reload();
-        message.success("回复已发送（Mock）");
-      },
-    });
+  async function sendMessage() {
+    if (!activeConversation || !draft.trim() || sending) return;
+    setSending(true);
+    try {
+      const result = await backend.sendMessage({
+        conversationId: activeConversation.id,
+        content: draft.trim(),
+        contact: activeConversation.customer.aliId,
+        action: "send",
+      });
+      setActiveConversation(result.conversation);
+      setDraft("");
+      await reload();
+      message.success("回复已发送（Mock）");
+    } finally {
+      setSending(false);
+    }
   }
 
   const activeCard = useMemo(() => activeConversation?.messages.find((item) => item.card?.id === activeCardId)?.card, [activeCardId, activeConversation]);
@@ -121,6 +119,7 @@ export function useChatWorkbench() {
     detailLoading,
     draft,
     setDraft,
+    sending,
     selectConversation,
     translate,
     translationVisible,
@@ -132,7 +131,7 @@ export function useChatWorkbench() {
     insertSuggestion,
     analysisOpen,
     setAnalysisOpen,
-    confirmSend,
+    sendMessage,
     groupMode,
     setGroupMode,
     activeCard,

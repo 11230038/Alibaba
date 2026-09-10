@@ -1,8 +1,11 @@
 "use client";
 
+import { SettingOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { Button, Card, Col, Row, Space, Spin, Typography } from "antd";
+import { useRouter } from "next/navigation";
 import { CardDetailDrawer } from "@/components/CardDetailDrawer";
+import { CollapsibleSessionListPanel } from "@/components/CollapsibleSessionListPanel";
 import { ConversationList } from "./conversation/ConversationList";
 import { CustomerInfo } from "./conversation/CustomerInfo";
 import { MessageTimeline } from "./conversation/MessageTimeline";
@@ -14,6 +17,7 @@ import { ChatComposer } from "./workspace/ChatComposer";
 type AnalysisFocus = "intent" | "stage";
 
 export function ChatPage() {
+  const router = useRouter();
   const workbench = useChatWorkbench();
   const active = workbench.activeConversation;
   const [customerInfoOpen, setCustomerInfoOpen] = useState(false);
@@ -35,7 +39,12 @@ export function ChatPage() {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={6}>
-          <Card title="会话列表" loading={workbench.loading} className="min-h-[720px]">
+          <CollapsibleSessionListPanel
+            title="会话列表"
+            loading={workbench.loading}
+            minHeightClassName="min-h-[720px]"
+            extra={<Button type="link" size="small" icon={<SettingOutlined />} onClick={() => router.push("/batch")}>管理会话</Button>}
+          >
             <ConversationList
               conversations={workbench.conversations}
               activeId={active?.id}
@@ -43,37 +52,42 @@ export function ChatPage() {
               onGroupModeChange={workbench.setGroupMode}
               onSelect={workbench.selectConversation}
             />
-          </Card>
+          </CollapsibleSessionListPanel>
         </Col>
 
-        <Col xs={24} xl={18}>
+        <Col xs={24} xl={18} className="flex">
           <Card
             title={active ? `${active.customer.name} · ${active.customer.company}` : "消息时间线"}
-            className="min-h-[720px]"
+            className="flex min-h-[720px] w-full flex-col"
+            classNames={{ body: "flex min-h-0 flex-1 flex-col" }}
           >
             {workbench.detailLoading ? (
-              <div className="flex h-[520px] items-center justify-center"><Spin /></div>
+              <div className="flex flex-1 items-center justify-center"><Spin /></div>
             ) : active ? (
-              <Space orientation="vertical" className="w-full" size="large">
-                <div className="max-h-[500px] overflow-y-auto pr-2">
+              <div className="flex min-h-0 flex-1 flex-col gap-6">
+                <div className="min-h-0 flex-1 overflow-y-auto pr-2">
                   <MessageTimeline
                     messages={active.messages}
+                    buyerId={active.customer.id}
                     showTranslations={workbench.translationVisible}
                     onRegenerate={(item) => workbench.translate(item, true)}
                     onOpenCard={workbench.setActiveCardId}
                   />
                 </div>
-                <ChatComposer
-                  value={workbench.draft}
-                  onChange={workbench.setDraft}
-                  translationVisible={workbench.translationVisible}
-                  onToggleTranslation={workbench.toggleTranslation}
-                  onOpenSuggestions={workbench.openSuggestions}
-                  onOpenIntentAnalysis={() => openAnalysis("intent")}
-                  onOpenStageAnalysis={() => openAnalysis("stage")}
-                  onSend={workbench.confirmSend}
-                />
-              </Space>
+                <div className="shrink-0">
+                  <ChatComposer
+                    value={workbench.draft}
+                    onChange={workbench.setDraft}
+                    translationVisible={workbench.translationVisible}
+                    onToggleTranslation={workbench.toggleTranslation}
+                    onOpenSuggestions={workbench.openSuggestions}
+                    onOpenIntentAnalysis={() => openAnalysis("intent")}
+                    onOpenStageAnalysis={() => openAnalysis("stage")}
+                    loading={workbench.sending}
+                    onSend={workbench.sendMessage}
+                  />
+                </div>
+              </div>
             ) : (
               <Typography.Text type="secondary">请选择一个会话</Typography.Text>
             )}

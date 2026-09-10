@@ -1,4 +1,39 @@
-import type { AgentConfig, AgentTestSession } from "@/types/agent";
+import type { AgentConfig, AgentTestMessage, AgentTestSession } from "@/types/agent";
+
+export type AgentTestTurn = {
+  user: AgentTestMessage;
+  assistant: AgentTestMessage;
+  startIndex: number;
+  endIndex: number;
+};
+
+export function getLatestAgentTestTurn(session: AgentTestSession): AgentTestTurn | null {
+  const endIndex = session.messages.length - 1;
+  const assistant = session.messages[endIndex];
+  const user = session.messages[endIndex - 1];
+  if (!assistant || !user || user.role !== "user" || assistant.role !== "assistant") return null;
+  return { user, assistant, startIndex: endIndex - 1, endIndex };
+}
+
+export function canUndoAgentTestTurn(session: AgentTestSession) {
+  return getLatestAgentTestTurn(session) !== null;
+}
+
+export function canRegenerateAgentTestReply(session: AgentTestSession) {
+  return getLatestAgentTestTurn(session) !== null;
+}
+
+export function removeLatestAgentTestTurn(session: AgentTestSession) {
+  const turn = getLatestAgentTestTurn(session);
+  if (!turn) return null;
+  return { ...session, messages: session.messages.slice(0, turn.startIndex) };
+}
+
+export function replaceLatestAgentTestReply(session: AgentTestSession, reply: AgentTestMessage) {
+  const turn = getLatestAgentTestTurn(session);
+  if (!turn) return null;
+  return { ...session, messages: session.messages.map((message, index) => index === turn.endIndex ? reply : message) };
+}
 
 export function agentCategoryLabel(category: AgentConfig["category"]) {
   return category === "system" ? "系统 Agent" : "普通 Agent";
@@ -15,4 +50,8 @@ export function filterAgentTestSessionsByCategory(sessions: AgentTestSession[], 
 
 export function enabledLabel(enabled: boolean) {
   return enabled ? "已启用" : "已停用";
+}
+
+export function formatAgentSessionDate(createdAt: string) {
+  return createdAt.slice(5, 16).replace("T", " ");
 }

@@ -54,6 +54,7 @@ export interface OperationsBackend {
   getSystemStatus(): Promise<SystemStatusSnapshot>;
   refreshSystemStatus(): Promise<SystemStatusSnapshot>;
   createTestTask(input: CreateTestTaskInput): Promise<TaskItem>;
+  deleteTask(id: string): Promise<void>;
 
   getAgentConsole(): Promise<AgentConsoleState>;
   saveLlmConfig(input: DocumentLlmConfig): Promise<DocumentLlmConfig>;
@@ -65,6 +66,8 @@ export interface OperationsBackend {
   updateAgentConfig(input: AgentConfig): Promise<AgentConfig>;
   runAgentTest(input: AgentTestInput): Promise<AgentTestResult>;
   listAgentTestHistory(): Promise<AgentTestSession[]>;
+  undoAgentTestSession(id: string): Promise<AgentTestSession>;
+  regenerateAgentTestSessionReply(id: string): Promise<AgentTestSession>;
   deleteAgentTestSession(id: string): Promise<void>;
   branchAgentTestSession(id: string): Promise<AgentTestSession>;
 }

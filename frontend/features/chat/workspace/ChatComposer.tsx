@@ -10,6 +10,7 @@ type ChatComposerProps = {
   onOpenSuggestions: () => void;
   onOpenIntentAnalysis: () => void;
   onOpenStageAnalysis: () => void;
+  loading: boolean;
   onSend: () => void;
 };
 
@@ -21,6 +22,7 @@ export function ChatComposer({
   onOpenSuggestions,
   onOpenIntentAnalysis,
   onOpenStageAnalysis,
+  loading,
   onSend,
 }: ChatComposerProps) {
   const tools = [
@@ -44,7 +46,7 @@ export function ChatComposer({
       tools={tools}
       onToolClick={handleToolClick}
       placeholder="输入卖家回复，或插入 AI 建议话术..."
-      sendLabel="发送前确认"
+      loading={loading}
       onSend={onSend}
     />
   );

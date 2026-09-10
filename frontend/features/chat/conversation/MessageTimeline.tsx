@@ -1,19 +1,34 @@
 "use client";
 
+import { RobotOutlined, UserOutlined } from "@ant-design/icons";
 import { Avatar, Button, Card, Space, Typography } from "antd";
 import { BusinessCardView } from "@/components/BusinessCardView";
+import { fallbackAvatarUrl, sellerAvatarUrl, conversationAvatarUrl } from "@/domain/chat/avatarModel";
 import type { ChatMessage } from "@/types/chat";
+import { useState } from "react";
 
-export function MessageTimeline({ messages, showTranslations = true, onRegenerate, onOpenCard }: { messages: ChatMessage[]; showTranslations?: boolean; onRegenerate: (message: ChatMessage) => void; onOpenCard: (cardId: string) => void }) {
+export function MessageTimeline({ messages, buyerId = "buyer", showTranslations = true, onRegenerate, onOpenCard }: { messages: ChatMessage[]; buyerId?: string; showTranslations?: boolean; onRegenerate: (message: ChatMessage) => void; onOpenCard: (cardId: string) => void }) {
+  const buyerAvatar = conversationAvatarUrl(buyerId);
+  const [sellerAvatar, setSellerAvatar] = useState(sellerAvatarUrl);
+
   return (
     <Space orientation="vertical" className="w-full" size="middle">
       {messages.map((message) => {
         const isSeller = message.role === "seller";
         const isSystem = message.role === "system";
+        const isBot = isSystem || message.role === "card";
         return (
           <div key={message.id} className={`flex ${isSeller ? "justify-end" : "justify-start"}`}>
             <div className={`flex max-w-[78%] gap-3 ${isSeller ? "flex-row-reverse" : ""}`}>
-              <Avatar style={{ backgroundColor: isSeller ? "#1677ff" : isSystem ? "#64748b" : "#10b981" }}>{isSeller ? "卖" : isSystem ? "系" : message.role === "card" ? "卡" : "买"}</Avatar>
+              <Avatar
+                src={isBot ? undefined : isSeller ? sellerAvatar : buyerAvatar}
+                icon={isBot ? <RobotOutlined /> : <UserOutlined />}
+                style={{ backgroundColor: isSeller ? "#e2e8f0" : isBot ? "#64748b" : "#10b981" }}
+                onError={isSeller ? () => {
+                  setSellerAvatar(fallbackAvatarUrl);
+                  return true;
+                } : undefined}
+              />
               <Card size="small" className={isSeller ? "bg-blue-50" : isSystem ? "bg-slate-50" : "bg-white"}>
                 <Space orientation="vertical" size={8} className="w-full">
                   <Typography.Text type="secondary" className="text-xs">{message.createdAt}</Typography.Text>

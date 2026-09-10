@@ -1,22 +1,19 @@
 "use client";
 
-import { EditOutlined, SaveOutlined } from "@ant-design/icons";
-import { Button, Card, Descriptions, Form, Input, InputNumber, Modal, Space, Table, Tag, Typography } from "antd";
+import { EditOutlined } from "@ant-design/icons";
+import { Button, Card, Form, Input, InputNumber, Modal, Space, Table, Tag, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import type { LlmLevelConfig } from "@/types/agent";
 import { HydrationSafeTable } from "@/components/HydrationSafeTable";
 import { useAgentWorkbench } from "./hooks/useAgentWorkbench";
 
 type LlmLevelFormValues = Omit<LlmLevelConfig, "level">;
-type GlobalPromptFormValues = { systemPrompt: string };
 
 export function LlmPage() {
   const workbench = useAgentWorkbench();
   const [editingLevel, setEditingLevel] = useState<LlmLevelConfig>();
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm<LlmLevelFormValues>();
-  const [globalPromptForm] = Form.useForm<GlobalPromptFormValues>();
-  const [savingGlobalPrompt, setSavingGlobalPrompt] = useState(false);
 
   const levels = useMemo(() => {
     if (workbench.state?.llmLevels?.length) return workbench.state.llmLevels;
@@ -35,11 +32,6 @@ export function LlmPage() {
   useEffect(() => {
     if (editingLevel) form.setFieldsValue(editingLevel);
   }, [editingLevel, form]);
-
-  useEffect(() => {
-    const prompt = workbench.state?.documentLlmConfig?.system_prompt ?? workbench.state?.llmConfig.systemPrompt;
-    if (prompt !== undefined) globalPromptForm.setFieldsValue({ systemPrompt: prompt });
-  }, [globalPromptForm, workbench.state?.documentLlmConfig?.system_prompt, workbench.state?.llmConfig.systemPrompt]);
 
   function openEditor(level: LlmLevelConfig) {
     setEditingLevel(level);
@@ -61,45 +53,17 @@ export function LlmPage() {
     }
   }
 
-  async function saveGlobalPrompt({ systemPrompt }: GlobalPromptFormValues) {
-    const current = workbench.state?.llmConfig;
-    if (!current) return;
-    setSavingGlobalPrompt(true);
-    try {
-      await workbench.saveLlmConfig({ ...current, systemPrompt });
-    } finally {
-      setSavingGlobalPrompt(false);
-    }
-  }
-
   return (
     <Space orientation="vertical" size="large" className="w-full">
       <div>
         <Typography.Title level={2} className="!mb-1">LLM</Typography.Title>
-        <Typography.Text type="secondary">按 Level 管理模型、上下文和工具调用参数</Typography.Text>
       </div>
-      <Card title="全局 SYSTEM_PROMPT">
-        <Form form={globalPromptForm} layout="vertical" onFinish={saveGlobalPrompt}>
-          <Form.Item name="systemPrompt" rules={[{ required: true, message: "请输入全局系统提示词" }]} className="!mb-3">
-            <Input.TextArea rows={3} placeholder="所有 Agent 默认使用的系统提示词" />
-          </Form.Item>
-          <Button type="primary" icon={<SaveOutlined />} htmlType="submit" loading={savingGlobalPrompt}>保存全局提示词</Button>
-        </Form>
-      </Card>
       <Card title={<span>LLM Level 配置 <Tag color="blue">{levels.length} 个层级</Tag></span>} loading={workbench.loading}>
         <Table
           rowKey="level"
           dataSource={levels}
-          scroll={{ x: 980 }}
+          scroll={{ x: 1340 }}
           components={{ table: HydrationSafeTable }}
-          expandable={{
-            expandedRowRender: (record) => (
-              <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small" bordered>
-                <Descriptions.Item label="API Key"><Typography.Text code>{record.apiKey}</Typography.Text></Descriptions.Item>
-                <Descriptions.Item label="System Prompt" span={2}>{record.systemPrompt}</Descriptions.Item>
-              </Descriptions>
-            ),
-          }}
           columns={[
             {
               title: "Level",
@@ -109,6 +73,7 @@ export function LlmPage() {
             },
             { title: "模型", dataIndex: "modelName", width: 240, ellipsis: true },
             { title: "服务地址", dataIndex: "baseUrl", width: 280, ellipsis: true },
+            { title: "系统提示词", dataIndex: "systemPrompt", width: 360, ellipsis: true },
             {
               title: "上下文",
               dataIndex: "context",

@@ -10,6 +10,7 @@ export function useStatusWorkbench() {
   const [snapshot, setSnapshot] = useState<SystemStatusSnapshot>();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [deletingTaskId, setDeletingTaskId] = useState<string>();
 
   useEffect(() => {
     async function load() {
@@ -41,5 +42,21 @@ export function useStatusWorkbench() {
     message.success("测试任务已创建");
   }
 
-  return { snapshot, loading, refreshing, refresh, createTestTask };
+  async function deleteTask(id: string) {
+    if (deletingTaskId) return;
+    setDeletingTaskId(id);
+    try {
+      await backend.deleteTask(id);
+      setSnapshot((current) => current ? {
+        ...current,
+        tasks: current.tasks.filter((task) => task.id !== id),
+        taskSnapshots: current.taskSnapshots?.filter((task) => task.task_id !== id),
+      } : current);
+      message.success("任务已删除");
+    } finally {
+      setDeletingTaskId(undefined);
+    }
+  }
+
+  return { snapshot, loading, refreshing, refresh, createTestTask, deleteTask, deletingTaskId };
 }

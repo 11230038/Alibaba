@@ -56,6 +56,7 @@ export const httpBackend: OperationsBackend = {
   getSystemStatus: () => request("/api/status"),
   refreshSystemStatus: () => request("/api/status/refresh", { method: "POST" }),
   createTestTask: (input) => request("/api/status/test-tasks", { method: "POST", body: JSON.stringify(input) }),
+  deleteTask: (id) => request(`/api/status/tasks/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   getAgentConsole: () => request("/api/agent/console"),
   saveLlmConfig: (input: DocumentLlmConfig) => request("/api/agent/llm-config", { method: "PUT", body: JSON.stringify(input) }),
@@ -67,6 +68,8 @@ export const httpBackend: OperationsBackend = {
   updateAgentConfig: (input) => request(`/api/agent/configs/${input.id}`, { method: "PUT", body: JSON.stringify(input) }),
   runAgentTest: (input) => request("/api/agent/test", { method: "POST", body: JSON.stringify(input) }),
   listAgentTestHistory: () => request("/api/agent/test-history"),
-  deleteAgentTestSession: (id) => request(`/api/agent/test-history/${id}`, { method: "DELETE" }),
-  branchAgentTestSession: (id) => request(`/api/agent/test-history/${id}/branch`, { method: "POST" }),
+  undoAgentTestSession: (id) => request(`/api/agent/test-history/${encodeURIComponent(id)}/undo`, { method: "POST" }),
+  regenerateAgentTestSessionReply: (id) => request(`/api/agent/test-history/${encodeURIComponent(id)}/regenerate`, { method: "POST" }),
+  deleteAgentTestSession: (id) => request(`/api/agent/test-history/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  branchAgentTestSession: (id) => request(`/api/agent/test-history/${encodeURIComponent(id)}/branch`, { method: "POST" }),
 };
