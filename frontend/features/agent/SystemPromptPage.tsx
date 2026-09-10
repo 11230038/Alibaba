@@ -5,13 +5,13 @@ import { Button, Card, Form, Input, Space, Typography } from "antd";
 import { useEffect, useState } from "react";
 import { useAgentWorkbench } from "./hooks/useAgentWorkbench";
 
-type GlobalPromptFormValues = {
+type LevelPromptFormValues = {
   systemPrompt: string;
 };
 
 export function SystemPromptPage() {
   const workbench = useAgentWorkbench();
-  const [form] = Form.useForm<GlobalPromptFormValues>();
+  const [form] = Form.useForm<LevelPromptFormValues>();
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -19,12 +19,12 @@ export function SystemPromptPage() {
     if (prompt !== undefined) form.setFieldsValue({ systemPrompt: prompt });
   }, [form, workbench.state?.documentLlmConfig?.system_prompt, workbench.state?.llmConfig.systemPrompt]);
 
-  async function save({ systemPrompt }: GlobalPromptFormValues) {
+  async function save({ systemPrompt }: LevelPromptFormValues) {
     const current = workbench.state?.llmConfig;
     if (!current) return;
     setSaving(true);
     try {
-      await workbench.saveLlmConfig({ ...current, systemPrompt });
+      await workbench.saveLlmConfig({ ...current, systemPrompt, level: current.level ?? workbench.state?.documentLlmConfig?.level ?? 0 });
     } finally {
       setSaving(false);
     }
@@ -33,9 +33,9 @@ export function SystemPromptPage() {
   return (
     <Space orientation="vertical" size="large" className="w-full">
       <div>
-        <Typography.Title level={2} className="!mb-1">全局 SYSTEM_PROMPT</Typography.Title>
+        <Typography.Title level={2} className="!mb-1">Level 系统提示词</Typography.Title>
       </div>
-      <Card title="全局 SYSTEM_PROMPT" loading={workbench.loading}>
+      <Card title="Level 系统提示词" loading={workbench.loading}>
         <Form form={form} layout="vertical" onFinish={save}>
           <Form.Item name="systemPrompt" label="系统提示词" rules={[{ required: true, message: "请输入全局系统提示词" }]}>
             <Input.TextArea autoSize={{ minRows: 1, maxRows: 6 }} placeholder="所有 Agent 默认使用的系统提示词" />

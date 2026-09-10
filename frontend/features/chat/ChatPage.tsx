@@ -23,9 +23,14 @@ export function ChatPage() {
   const [customerInfoOpen, setCustomerInfoOpen] = useState(false);
   const [analysisFocus, setAnalysisFocus] = useState<AnalysisFocus>("intent");
 
-  function openAnalysis(focus: AnalysisFocus) {
+  async function openAnalysis(focus: AnalysisFocus) {
     setAnalysisFocus(focus);
     workbench.setAnalysisOpen(true);
+    try {
+      await workbench.analyzeConversation();
+    } catch {
+      workbench.setAnalysisOpen(false);
+    }
   }
 
   return (
@@ -81,8 +86,8 @@ export function ChatPage() {
                     translationVisible={workbench.translationVisible}
                     onToggleTranslation={workbench.toggleTranslation}
                     onOpenSuggestions={workbench.openSuggestions}
-                    onOpenIntentAnalysis={() => openAnalysis("intent")}
-                    onOpenStageAnalysis={() => openAnalysis("stage")}
+                    onOpenIntentAnalysis={() => void openAnalysis("intent")}
+                    onOpenStageAnalysis={() => void openAnalysis("stage")}
                     loading={workbench.sending}
                     onSend={workbench.sendMessage}
                   />

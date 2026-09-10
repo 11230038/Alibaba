@@ -17,7 +17,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(`API request failed: ${response.status} ${response.statusText}`);
   }
 
-  const payload = (await response.json()) as T | ApiResponse<T>;
+  const text = await response.text();
+  if (!text.trim()) return undefined as T;
+  const payload = JSON.parse(text) as T | ApiResponse<T>;
   if (isApiResponse<T>(payload)) {
     if (payload.code !== 0) throw new Error(payload.msg);
     return payload.data;
@@ -40,12 +42,12 @@ export const httpBackend: OperationsBackend = {
   analyzeConversationInput: (input) => request("/api/chat/analysis", { method: "POST", body: JSON.stringify(input) }),
 
   listConversations: () => request("/api/conversations"),
-  getConversation: (id) => request(`/api/conversations/${id}`),
+  getConversation: (id) => request(`/api/conversations/${encodeURIComponent(id)}`),
   translateMessage: (input) => request("/api/messages/translate", { method: "POST", body: JSON.stringify(input) }),
   regenerateTranslation: (input) => request("/api/messages/retranslate", { method: "POST", body: JSON.stringify(input) }),
-  getAssistantSuggestions: (conversationId) => request(`/api/conversations/${conversationId}/suggestions`),
-  analyzeConversation: (conversationId) => request(`/api/conversations/${conversationId}/analysis`),
-  sendMessage: (input) => request(`/api/conversations/${input.conversationId}/messages`, { method: "POST", body: JSON.stringify(input) }),
+  getAssistantSuggestions: (conversationId) => request(`/api/conversations/${encodeURIComponent(conversationId)}/suggestions`),
+  analyzeConversation: (conversationId) => request(`/api/conversations/${encodeURIComponent(conversationId)}/analysis`),
+  sendMessage: (input) => request(`/api/conversations/${encodeURIComponent(input.conversationId)}/messages`, { method: "POST", body: JSON.stringify(input) }),
   exportConversations: (input) => request("/api/conversations/export", { method: "POST", body: JSON.stringify(input) }),
 
   checkUserStatus: () => request("/api/status/user"),
@@ -61,11 +63,10 @@ export const httpBackend: OperationsBackend = {
   getAgentConsole: () => request("/api/agent/console"),
   saveLlmConfig: (input: DocumentLlmConfig) => request("/api/agent/llm-config", { method: "PUT", body: JSON.stringify(input) }),
   saveAgentPreset: (input: AgentPreset) => request("/api/agent/presets", { method: "POST", body: JSON.stringify(input) }),
-  deleteAgentPreset: (id) => request(`/api/agent/presets/${id}`, { method: "DELETE" }),
-  restoreSystemAgentDefault: (apid) => request(`/api/agent/system/${apid}/restore`, { method: "POST" }),
+  deleteAgentPreset: (id) => request(`/api/agent/presets/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  restoreSystemAgentDefault: (apid) => request(`/api/agent/system/${encodeURIComponent(apid)}/restore`, { method: "POST" }),
   listSystemAgentDefinitions: () => request("/api/agent/system"),
-  updateLlmConfig: (input) => request("/api/agent/llm-config", { method: "PUT", body: JSON.stringify(input) }),
-  updateAgentConfig: (input) => request(`/api/agent/configs/${input.id}`, { method: "PUT", body: JSON.stringify(input) }),
+  updateAgentConfig: (input) => request(`/api/agent/configs/${encodeURIComponent(String(input.apid ?? input.id))}`, { method: "PUT", body: JSON.stringify(input) }),
   runAgentTest: (input) => request("/api/agent/test", { method: "POST", body: JSON.stringify(input) }),
   listAgentTestHistory: () => request("/api/agent/test-history"),
   undoAgentTestSession: (id) => request(`/api/agent/test-history/${encodeURIComponent(id)}/undo`, { method: "POST" }),

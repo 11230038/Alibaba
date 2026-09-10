@@ -25,7 +25,9 @@ export function LlmPage() {
       modelName: current.model_name,
       systemPrompt: current.system_prompt ?? "",
       context: current.context,
-      maxToolRounds: current.max_tool_rounds ?? 0,
+      contextLimitOutputText: current.context_limit_output_text,
+      toolRoundLimitOutputText: current.tool_round_limit_output_text,
+      maxToolRounds: current.max_tool_rounds ?? null,
     }] : [];
   }, [workbench.state?.documentLlmConfig, workbench.state?.llmLevels]);
 
@@ -110,8 +112,8 @@ export function LlmPage() {
             <Form.Item name="context" label="上下文长度" rules={[{ required: true }]}>
               <InputNumber min={1} step={1000} className="w-full" />
             </Form.Item>
-            <Form.Item name="maxToolRounds" label="最大工具轮数" rules={[{ required: true }]}>
-              <InputNumber min={0} max={32} className="w-full" />
+            <Form.Item name="maxToolRounds" label="最大工具轮数" rules={[{ validator: (_, value: number | null) => value === null || value === undefined || (Number.isInteger(value) && value > 0) ? Promise.resolve() : Promise.reject(new Error("请输入正整数或留空")) }]}>
+              <InputNumber min={1} max={32} className="w-full" placeholder="留空表示不限制" />
             </Form.Item>
           </div>
           <Form.Item name="systemPrompt" label="系统提示词" rules={[{ required: true, message: "请输入系统提示词" }]}>

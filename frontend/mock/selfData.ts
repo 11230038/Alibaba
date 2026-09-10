@@ -1,6 +1,7 @@
 import type { SelfInfo } from "@/types/home";
 
 export const mockSelfInfo: SelfInfo = {
+  aid: 9001,
   ali_id: "seller-ali-001",
   login_id: "demo-seller",
   encrypt_account_id: "enc-seller-001",

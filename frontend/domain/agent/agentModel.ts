@@ -1,4 +1,4 @@
-import type { AgentConfig, AgentTestMessage, AgentTestSession } from "@/types/agent";
+import type { AgentConfig, AgentPreset, AgentTestMessage, AgentTestSession, DbAgentPreset, DocumentLlmConfig, LlmConfig, LlmLevelConfig } from "@/types/agent";
 
 export type AgentTestTurn = {
   user: AgentTestMessage;
@@ -6,6 +6,22 @@ export type AgentTestTurn = {
   startIndex: number;
   endIndex: number;
 };
+
+export const SYSTEM_AGENT_APIDS = {
+  translation: "agent-1bad27aabaac439da678f31d53855b5d",
+  replySuggestion: "agent-5a43bda9e1304108a1a78a3575a44e27",
+  stageAnalysis: "agent-f6fb1e0ddff44d27bb3e19e243a70584",
+  intentAnalysis: "agent-c9b80fdfad234392b55d84de93a186ae",
+} as const;
+
+const TOOL_LABELS: Record<string, string> = {
+  crm_query: "CRM 查询",
+  quote_template: "报价模板",
+  order_summary: "订单摘要",
+  logistics_calculator: "物流计算",
+};
+
+const TOOL_NAMES = Object.fromEntries(Object.entries(TOOL_LABELS).map(([name, label]) => [label, name]));
 
 export function getLatestAgentTestTurn(session: AgentTestSession): AgentTestTurn | null {
   const endIndex = session.messages.length - 1;
@@ -54,4 +70,149 @@ export function enabledLabel(enabled: boolean) {
 
 export function formatAgentSessionDate(createdAt: string) {
   return createdAt.slice(5, 16).replace("T", " ");
+}
+
+export function isAgentLevel(value: number) {
+  return Number.isInteger(value) && value >= 0 && value <= 4;
+}
+
+export function normalizeAgentLevel(value: number) {
+  if (!isAgentLevel(value)) throw new Error("Agent 等级必须是 0 到 4 的整数");
+  return value;
+}
+
+export function agentToolToDisplayLabel(tool: string) {
+  return TOOL_LABELS[tool] ?? tool;
+}
+
+export function agentToolToRegisteredName(tool: string) {
+  return TOOL_NAMES[tool] ?? tool;
+}
+
+export function normalizeAgentTools(tools: string[] = []) {
+  return tools.map((tool) => agentToolToRegisteredName(tool.trim())).filter(Boolean);
+}
+
+export function displayAgentTools(tools: string[] = []) {
+  return tools.map(agentToolToDisplayLabel);
+}
+
+export function agentPresetApid(preset: Pick<AgentPreset, "id" | "apid">) {
+  return preset.apid ?? String(preset.id);
+}
+
+export function agentPresetLevel(preset: Pick<AgentPreset, "level" | "intelevel">) {
+  return normalizeAgentLevel(preset.intelevel ?? preset.level);
+}
+
+export function agentPresetToDbPreset(preset: AgentPreset): DbAgentPreset {
+  return {
+    apid: agentPresetApid(preset),
+    name: preset.name,
+    description: preset.description,
+    prompt: preset.prompt,
+    intelevel: agentPresetLevel(preset),
+    tools: normalizeAgentTools(preset.tools),
+  };
+}
+
+export function agentPresetToConfig(preset: AgentPreset): AgentConfig {
+  const apid = agentPresetApid(preset);
+  return {
+    id: apid,
+    name: preset.name,
+    category: preset.category,
+    enabled: preset.enabled,
+    capabilities: displayAgentTools(normalizeAgentTools(preset.tools)),
+    description: preset.description,
+    updatedAt: preset.updated_at,
+    prompt: preset.prompt,
+    level: agentPresetLevel(preset),
+    apid,
+  };
+}
+
+export function agentConfigToPreset(agent: AgentConfig, values: { name: string; description?: string; prompt: string; level: number; capabilities?: string[] }, updatedAt: string): AgentPreset {
+  const apid = agent.apid ?? agent.id;
+  return {
+    id: apid,
+    apid,
+    name: values.name.trim(),
+    category: agent.category,
+    enabled: agent.enabled,
+    description: (values.description ?? "").trim(),
+    prompt: values.prompt.trim(),
+    level: normalizeAgentLevel(values.level),
+    intelevel: normalizeAgentLevel(values.level),
+    tools: normalizeAgentTools(values.capabilities),
+    updated_at: updatedAt,
+  };
+}
+
+export function createRegularAgentPreset(values: { name: string; description?: string; prompt: string; level: number; capabilities?: string[] }, updatedAt: string, apid = `agent-${Date.now()}`): AgentPreset {
+  return {
+    id: apid,
+    apid,
+    name: values.name.trim(),
+    category: "regular",
+    enabled: true,
+    description: (values.description ?? "").trim(),
+    prompt: values.prompt.trim(),
+    level: normalizeAgentLevel(values.level),
+    intelevel: normalizeAgentLevel(values.level),
+    tools: normalizeAgentTools(values.capabilities),
+    updated_at: updatedAt,
+  };
+}
+
+export function isValidToolRoundLimit(value: number | null | undefined) {
+  return value === null || value === undefined || (Number.isInteger(value) && value > 0);
+}
+
+export function normalizeToolRoundLimit(value: number | null | undefined) {
+  if (!isValidToolRoundLimit(value)) throw new Error("最大工具轮数必须为空或正整数");
+  return value ?? null;
+}
+
+export function documentToLlmLevelConfig(input: DocumentLlmConfig): LlmLevelConfig {
+  return {
+    level: normalizeAgentLevel(input.level),
+    baseUrl: input.base_url,
+    apiKey: input.api_key,
+    modelName: input.model_name,
+    systemPrompt: input.system_prompt ?? "",
+    context: input.context,
+    contextLimitOutputText: input.context_limit_output_text,
+    toolRoundLimitOutputText: input.tool_round_limit_output_text,
+    maxToolRounds: normalizeToolRoundLimit(input.max_tool_rounds),
+  };
+}
+
+export function llmLevelToDocumentConfig(config: LlmLevelConfig, current?: DocumentLlmConfig): DocumentLlmConfig {
+  return {
+    level: normalizeAgentLevel(config.level),
+    base_url: config.baseUrl,
+    api_key: config.apiKey,
+    model_name: config.modelName,
+    system_prompt: config.systemPrompt,
+    context: config.context,
+    context_limit_output_text: config.contextLimitOutputText ?? current?.context_limit_output_text,
+    tool_round_limit_output_text: config.toolRoundLimitOutputText ?? current?.tool_round_limit_output_text,
+    max_tool_rounds: normalizeToolRoundLimit(config.maxToolRounds),
+  };
+}
+
+export function documentToUiLlmConfig(input: DocumentLlmConfig, current: LlmConfig): LlmConfig {
+  return {
+    ...current,
+    level: input.level,
+    model: input.model_name,
+    systemPrompt: input.system_prompt ?? current.systemPrompt,
+    baseUrl: input.base_url,
+    apiKey: input.api_key,
+    context: input.context,
+    contextLimitOutputText: input.context_limit_output_text,
+    toolRoundLimitOutputText: input.tool_round_limit_output_text,
+    maxToolRounds: normalizeToolRoundLimit(input.max_tool_rounds),
+  };
 }

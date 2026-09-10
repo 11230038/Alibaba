@@ -122,4 +122,21 @@ describe("conversation model adapters", () => {
     expect(detail.messages[2].card?.id).toBe("card-1");
     expect(detail.analysis.stage).toBe("interested");
   });
+
+  it("maps database session and message fields without leaking the legacy typo", () => {
+    const detail = toConversationDetail({
+      sid: 42,
+      name: "Buyer session",
+      participants: [101, 9001],
+      messages: [
+        { external_mid: "db-msg-1", sid: 42, sender: 101, read: false, content: { text: "需要报价" }, type: "text" },
+        { external_mid: "db-msg-2", sid: 42, sender: 9001, read: true, content: "已收到", type: "text" },
+      ],
+    }, [], { ...selfInfo, aid: 9001 });
+
+    expect(detail.id).toBe("42");
+    expect(detail.unreadCount).toBe(1);
+    expect(detail.messages[0]).toMatchObject({ id: "db-msg-1", sid: 42, externalMid: "db-msg-1", senderAid: 101, read: false, content: '{"text":"需要报价"}' });
+    expect(detail.messages[1].id).toBe("db-msg-2");
+  });
 });

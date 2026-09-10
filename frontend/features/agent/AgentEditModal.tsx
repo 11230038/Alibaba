@@ -34,7 +34,7 @@ export function AgentEditModal({ agent, category, title, open, saving, onClose, 
       name: agent.name,
       description: agent.description,
       prompt: agent.prompt ?? "",
-      level: agent.level ?? 1,
+      level: agent.level ?? 0,
       capabilities: agent.capabilities,
     });
   }, [agent, form]);
@@ -58,7 +58,7 @@ export function AgentEditModal({ agent, category, title, open, saving, onClose, 
           <Input.TextArea rows={4} />
         </Form.Item>
         <Form.Item name="level" label="等级" rules={[{ required: true, message: "请输入等级" }]}>
-          <InputNumber min={1} max={5} className="w-full" />
+          <InputNumber min={0} max={4} className="w-full" />
         </Form.Item>
         {(agent?.category ?? category) === "regular" && (
           <Form.Item name="capabilities" label="能力">

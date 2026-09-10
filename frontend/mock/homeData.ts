@@ -8,7 +8,7 @@ export const homeDashboard: HomeDashboard = {
   info: mockSelfInfo,
   metrics: [
     { key: "conversations", title: "活跃会话", value: crmConversations.length, delta: { value: 12.4, direction: "up", label: "较昨日" } },
-    { key: "unread", title: "待回复客户", value: crmConversations.reduce((count, item) => count + item.messages.filter((message) => message.sender_id !== mockSelfInfo.ali_id && !message.is_system).length, 0), delta: { value: 6.1, direction: "down", label: "较昨日" } },
+    { key: "unread", title: "待回复客户", value: crmConversations.reduce((count, item) => count + item.messages.filter((message) => (message.read === false || message.read === undefined) && message.sender_id !== mockSelfInfo.ali_id && !message.is_system).length, 0), delta: { value: 6.1, direction: "down", label: "较昨日" } },
     { key: "cards", title: "可用卡片", value: businessCards.length, delta: { value: 4, direction: "up", label: "本周新增" } },
     { key: "agent", title: "Agent 可用率", value: 96.8, suffix: "%", delta: { value: 1.2, direction: "up", label: "近 24h" } },
   ],

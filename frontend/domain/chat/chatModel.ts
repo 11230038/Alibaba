@@ -5,8 +5,10 @@ import type {
   ConversationAnalysis,
   ConversationAnalysisInput,
   ConversationDetail,
+  ConversationRecord,
   CrmConversation,
   CrmMessage,
+  DbMessage,
   CustomerStage,
   MessageRole,
   ReplySuggestionInput,
@@ -69,17 +71,19 @@ export function buildConversationExport(details: ConversationDetail[]) {
   };
 }
 
-export function toConversationSummary(conversation: CrmConversation, users: UserInfo[], selfInfo: SelfInfo | null): Conversation {
-  const user = resolveUser(conversation.contact_ali_id, users);
-  const messages = conversation.messages;
-  const unreadCount = messages.filter((message) => isBuyerMessage(message, selfInfo) && !message.is_system).length;
+export function toConversationSummary(conversation: ConversationRecord, users: UserInfo[], selfInfo: SelfInfo | null): Conversation {
+  const legacyConversation = isLegacyConversation(conversation) ? conversation : undefined;
+  const contactId = legacyConversation?.contact_ali_id ?? String(conversation.sid);
+  const user = resolveUser(contactId, users);
+  const messages: Array<CrmMessage | DbMessage> = conversation.messages;
+  const unreadCount = messages.filter((message) => isUnreadBuyerMessage(message, selfInfo) && !isSystemMessage(message)).length;
   const stage = inferStage(user, messages);
 
   return {
-    id: conversation.contact_ali_id,
+    id: contactId,
     customer: {
-      id: user?.ali_id ?? conversation.contact_ali_id,
-      aliId: user?.ali_id ?? conversation.contact_ali_id,
+      id: user?.ali_id ?? contactId,
+      aliId: user?.ali_id ?? contactId,
       name: formatUserName(user),
       company: user?.company_name ?? "未知公司",
       country: user?.country_code ?? "未知",
@@ -90,15 +94,15 @@ export function toConversationSummary(conversation: CrmConversation, users: User
       availability: user?.available ? "当前可联系" : "暂未确认",
       behavior: buildBehavior(user),
     },
-    latestMessage: conversation.last_content_label ?? latestMessage(messages)?.content_label ?? "暂无消息",
-    updatedAt: formatCreatedAt(conversation.last_created_at),
+    latestMessage: latestMessageText(conversation),
+    updatedAt: formatCreatedAt(legacyConversation?.last_created_at ?? getMessageCreatedAt(latestMessage(messages))),
     unreadCount,
     status: unreadCount > 0 ? "unread" : stage === "done" ? "closed" : "following",
     priority: priorityFromScore(user?.potential_score ?? 60),
   };
 }
 
-export function toConversationDetail(conversation: CrmConversation, users: UserInfo[], selfInfo: SelfInfo | null, cards: BusinessCard[] = []): ConversationDetail {
+export function toConversationDetail(conversation: ConversationRecord, users: UserInfo[], selfInfo: SelfInfo | null, cards: BusinessCard[] = []): ConversationDetail {
   const summary = toConversationSummary(conversation, users, selfInfo);
   const messages = conversation.messages.map((message) => toChatMessage(message, selfInfo, cards));
   const analysis = buildConversationAnalysis(summary, conversation, users);
@@ -146,14 +150,22 @@ export function formatCreatedAt(value: unknown) {
   return "未知时间";
 }
 
-function toChatMessage(message: CrmMessage, selfInfo: SelfInfo | null, cards: BusinessCard[]) {
-  const role: MessageRole = message.is_system ? "system" : message.card_id ? "card" : isSellerMessage(message, selfInfo) ? "seller" : "buyer";
-  const card = message.card_id ? cards.find((item) => item.id === message.card_id) : undefined;
+function toChatMessage(message: CrmMessage | DbMessage, selfInfo: SelfInfo | null, cards: BusinessCard[]) {
+  const legacyMessage = isLegacyMessage(message) ? message : undefined;
+  const card = legacyMessage?.card_id ? cards.find((item) => item.id === legacyMessage.card_id) : undefined;
+  const rawContent = message.content;
+  const role: MessageRole = isSystemMessage(message) ? "system" : card ? "card" : isSellerMessage(message, selfInfo) ? "seller" : "buyer";
   return {
-    id: message.mid,
+    id: messageId(message),
     role,
-    content: message.content_label ?? message.content ?? (card ? "系统推荐卡片" : ""),
-    createdAt: formatCreatedAt(message.created_at),
+    content: displayMessageContent(legacyMessage?.content_label, rawContent, card),
+    createdAt: formatCreatedAt(legacyMessage?.created_at),
+    sid: message.sid,
+    externalMid: isDbMessage(message) ? message.external_mid : message.external_mid ?? message.extrenal_mid ?? message.mid,
+    senderAid: message.sender,
+    read: message.read,
+    type: message.type,
+    rawContent,
     card,
   };
 }
@@ -162,8 +174,8 @@ function resolveUser(contactAliId: string, users: UserInfo[]) {
   return users.find((user) => user.ali_id === contactAliId || user.login_id === contactAliId || user.encrypt_account_id === contactAliId);
 }
 
-function latestMessage(messages: CrmMessage[]) {
-  return [...messages].sort((a, b) => coerceEpoch(b.created_at) - coerceEpoch(a.created_at))[0];
+function latestMessage(messages: Array<CrmMessage | DbMessage>) {
+  return [...messages].sort((a, b) => coerceEpoch(getMessageCreatedAt(b)) - coerceEpoch(getMessageCreatedAt(a)))[0];
 }
 
 function coerceEpoch(value: unknown) {
@@ -173,12 +185,50 @@ function coerceEpoch(value: unknown) {
   return 0;
 }
 
-function isSellerMessage(message: CrmMessage, selfInfo: SelfInfo | null) {
+function isSellerMessage(message: CrmMessage | DbMessage, selfInfo: SelfInfo | null) {
+  if (isDbMessage(message)) return selfInfo?.aid !== undefined && message.sender === selfInfo.aid;
   return Boolean(selfInfo?.ali_id && message.sender_id === selfInfo.ali_id);
 }
 
-function isBuyerMessage(message: CrmMessage, selfInfo: SelfInfo | null) {
+function isBuyerMessage(message: CrmMessage | DbMessage, selfInfo: SelfInfo | null) {
+  if (isDbMessage(message)) return selfInfo?.aid === undefined || message.sender !== selfInfo.aid;
   return Boolean(message.sender_id && message.sender_id !== selfInfo?.ali_id);
+}
+
+function isUnreadBuyerMessage(message: CrmMessage | DbMessage, selfInfo: SelfInfo | null) {
+  return isBuyerMessage(message, selfInfo) && (message.read === undefined || message.read === false);
+}
+
+function isSystemMessage(message: CrmMessage | DbMessage) {
+  return isLegacyMessage(message) ? message.is_system : message.type === "system";
+}
+
+function isDbMessage(message: CrmMessage | DbMessage): message is DbMessage {
+  return "external_mid" in message && typeof message.sid === "number" && typeof message.sender === "number";
+}
+
+function isLegacyMessage(message: CrmMessage | DbMessage): message is CrmMessage {
+  return "mid" in message || "sender_id" in message;
+}
+
+function messageId(message: CrmMessage | DbMessage) {
+  if (isDbMessage(message)) return message.external_mid;
+  return message.external_mid ?? message.extrenal_mid ?? message.mid;
+}
+
+function getMessageCreatedAt(message: CrmMessage | DbMessage) {
+  return isLegacyMessage(message) ? message.created_at : undefined;
+}
+
+function displayMessageContent(label: string | null | undefined, content: unknown, card?: BusinessCard) {
+  if (label) return label;
+  if (typeof content === "string") return content;
+  if (content === null || content === undefined) return card ? "系统推荐卡片" : "";
+  try {
+    return JSON.stringify(content);
+  } catch {
+    return card ? "系统推荐卡片" : "";
+  }
 }
 
 function formatUserName(user?: UserInfo) {
@@ -202,10 +252,10 @@ function buildBehavior(user?: UserInfo) {
   ];
 }
 
-function inferStage(user: UserInfo | undefined, messages: CrmMessage[]): CustomerStage {
+function inferStage(user: UserInfo | undefined, messages: Array<CrmMessage | DbMessage>): CustomerStage {
   if ((user?.valid_inquiry_count ?? 0) >= 5) return "negotiating";
   if ((user?.potential_score ?? 0) >= 80) return "interested";
-  if (messages.some((message) => message.content_label?.includes("风险"))) return "risk";
+  if (messages.some((message) => displayMessageContent(isLegacyMessage(message) ? message.content_label : undefined, message.content).includes("风险"))) return "risk";
   return "new";
 }
 
@@ -215,20 +265,31 @@ function priorityFromScore(score: number): Conversation["priority"] {
   return "low";
 }
 
-function buildConversationAnalysis(summary: Conversation, conversation: CrmConversation, users: UserInfo[]): ConversationAnalysis {
-  const user = resolveUser(conversation.contact_ali_id, users);
+function buildConversationAnalysis(summary: Conversation, conversation: ConversationRecord, users: UserInfo[]): ConversationAnalysis {
+  const contactId = isLegacyConversation(conversation) ? conversation.contact_ali_id : String(conversation.sid);
+  const user = resolveUser(contactId, users);
   const score = user?.potential_score ?? 60;
   const nextActions = score >= 80 ? ["确认采购数量", "发送报价与认证资料", "约定样品寄送时间"] : ["补充客户关注资料", "确认需求场景"];
   return {
-    intent: conversation.last_content_label ?? "客户需求沟通",
+    intent: latestMessageText(conversation) || "客户需求沟通",
     stage: summary.customer.stage,
     score,
     risks: user?.blacklisted_count ? ["客户存在历史拉黑记录"] : ["需持续跟进响应时效"],
     nextActions,
     summary: `${summary.customer.name} 当前处于${stageLabel(summary.customer.stage)}阶段，建议优先处理最近消息。`,
     rawText: "Mock Agent 已完成客户阶段与意图分析。",
-    jsonPayload: { intent: conversation.last_content_label, stage: summary.customer.stage, confidence: score },
+    jsonPayload: { intent: latestMessageText(conversation), stage: summary.customer.stage, confidence: score },
   };
+}
+
+function latestMessageText(conversation: ConversationRecord) {
+  if (isLegacyConversation(conversation) && conversation.last_content_label) return conversation.last_content_label;
+  const latest = latestMessage(conversation.messages);
+  return latest ? displayMessageContent(isLegacyMessage(latest) ? latest.content_label : undefined, latest.content) : "暂无消息";
+}
+
+function isLegacyConversation(conversation: ConversationRecord): conversation is CrmConversation {
+  return "contact_ali_id" in conversation;
 }
 
 function dateGroup(value: string) {

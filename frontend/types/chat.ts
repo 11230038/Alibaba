@@ -37,6 +37,21 @@ export interface UserInfo {
   email_validated: boolean;
 }
 
+export interface DbSessionMeta {
+  sid: number;
+  name: string | null;
+  participants: number[];
+}
+
+export interface DbMessage {
+  external_mid: string;
+  sid: number;
+  sender: number;
+  read: boolean | null;
+  content: unknown;
+  type: string;
+}
+
 export interface CrmMessage {
   table_name: string;
   cid: string;
@@ -45,10 +60,16 @@ export interface CrmMessage {
   created_at: unknown;
   user_content_type: number | null;
   content_label: string | null;
-  content: string | null;
+  content: unknown;
   is_system: boolean;
   is_auto_reply: boolean;
   card_id?: string;
+  external_mid?: string;
+  extrenal_mid?: string;
+  sid?: number;
+  sender?: number;
+  read?: boolean | null;
+  type?: string;
 }
 
 export interface CrmConversation {
@@ -56,7 +77,16 @@ export interface CrmConversation {
   messages: CrmMessage[];
   last_created_at: unknown;
   last_content_label: string | null;
+  sid?: number;
+  name?: string | null;
+  participants?: number[];
 }
+
+export interface DbConversation extends DbSessionMeta {
+  messages: DbMessage[];
+}
+
+export type ConversationRecord = CrmConversation | DbConversation;
 
 export interface ChatSyncState {
   ready: boolean;
@@ -104,6 +134,12 @@ export interface ChatMessage {
   role: MessageRole;
   content: string;
   createdAt: string;
+  sid?: number;
+  externalMid?: string;
+  senderAid?: number;
+  read?: boolean | null;
+  type?: string;
+  rawContent?: unknown;
   translatedContent?: string;
   card?: BusinessCard;
 }
@@ -132,7 +168,7 @@ export interface ConversationAnalysis {
 export interface ConversationDetail extends Conversation {
   messages: ChatMessage[];
   analysis: ConversationAnalysis;
-  source?: CrmConversation;
+  source?: ConversationRecord;
 }
 
 export interface AssistantSuggestion {

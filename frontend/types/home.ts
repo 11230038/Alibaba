@@ -2,6 +2,7 @@ import type { MetricDelta } from "@/types/common";
 import type { TaskItem } from "@/types/status";
 
 export interface SelfInfo {
+  aid?: number;
   ali_id: string;
   login_id: string;
   encrypt_account_id: string;

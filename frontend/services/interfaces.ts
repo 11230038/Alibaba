@@ -1,4 +1,4 @@
-import type { AgentConfig, AgentConsoleState, AgentPreset, AgentTestInput, AgentTestResult, AgentTestSession, DocumentLlmConfig, LlmConfig, SystemAgentDefinition } from "@/types/agent";
+import type { AgentConfig, AgentConsoleState, AgentPreset, AgentTestInput, AgentTestResult, AgentTestSession, DocumentLlmConfig, SystemAgentDefinition } from "@/types/agent";
 import type {
   AgentAnalysisResult,
   AssistantSuggestion,
@@ -62,7 +62,6 @@ export interface OperationsBackend {
   deleteAgentPreset(id: string): Promise<boolean>;
   restoreSystemAgentDefault(apid: string): Promise<AgentPreset>;
   listSystemAgentDefinitions(): Promise<SystemAgentDefinition[]>;
-  updateLlmConfig(input: LlmConfig): Promise<LlmConfig>;
   updateAgentConfig(input: AgentConfig): Promise<AgentConfig>;
   runAgentTest(input: AgentTestInput): Promise<AgentTestResult>;
   listAgentTestHistory(): Promise<AgentTestSession[]>;

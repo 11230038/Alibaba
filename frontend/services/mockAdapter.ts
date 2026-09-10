@@ -6,8 +6,8 @@ import { mockSelfInfo } from "@/mock/selfData";
 import { keyStatus, nodeResult, proxyStatus, receiverStatus, systemStatus, taskSnapshots } from "@/mock/statusData";
 import { buildConversationExport, conversationToTuples, replySuggestionsToAssistantSuggestions, toConversationDetail, toConversationSummary } from "@/domain/chat/chatModel";
 import { buildSystemStatusSnapshot, taskSnapshotToTaskItem } from "@/domain/status/statusModel";
-import { getLatestAgentTestTurn, removeLatestAgentTestTurn, replaceLatestAgentTestReply } from "@/domain/agent/agentModel";
-import type { AgentConfig, AgentConsoleState, AgentPreset, AgentTestSession, DocumentLlmConfig, LlmConfig } from "@/types/agent";
+import { agentPresetToConfig, documentToUiLlmConfig, getLatestAgentTestTurn, removeLatestAgentTestTurn, replaceLatestAgentTestReply } from "@/domain/agent/agentModel";
+import type { AgentConfig, AgentConsoleState, AgentPreset, AgentTestSession, DocumentLlmConfig } from "@/types/agent";
 import type { BusinessCard } from "@/types/cards";
 import type { ConversationDetail, CrmConversation, CrmMessage, SendChatMessageInput, UserInfo } from "@/types/chat";
 import type { HomeDashboard, SelfInfo } from "@/types/home";
@@ -199,20 +199,36 @@ export const mockBackend: OperationsBackend = {
   getAgentConsole: () => delay(structuredClone(consoleStore)),
 
   saveLlmConfig: async (input) => {
-    documentLlmConfigStore = input;
-    consoleStore = { ...consoleStore, documentLlmConfig: input, llmConfig: documentToUiLlmConfig(input, consoleStore.llmConfig) };
-    return delay(input);
+    documentLlmConfigStore = structuredClone(input);
+    const currentUi = consoleStore.llmConfig;
+    const nextUi = documentToUiLlmConfig(documentLlmConfigStore, currentUi);
+    const nextLevels = (consoleStore.llmLevels ?? llmLevels).map((level) => level.level === input.level ? {
+      ...level,
+      level: input.level,
+      baseUrl: input.base_url,
+      apiKey: input.api_key,
+      modelName: input.model_name,
+      systemPrompt: input.system_prompt ?? level.systemPrompt,
+      context: input.context,
+      contextLimitOutputText: input.context_limit_output_text,
+      toolRoundLimitOutputText: input.tool_round_limit_output_text,
+      maxToolRounds: input.max_tool_rounds ?? null,
+    } : level);
+    consoleStore = { ...consoleStore, documentLlmConfig: documentLlmConfigStore, llmConfig: nextUi, llmLevels: nextLevels };
+    return delay(structuredClone(documentLlmConfigStore));
   },
 
   saveAgentPreset: async (input) => {
-    agentPresetStore = agentPresetStore.some((preset) => preset.id === input.id) ? agentPresetStore.map((preset) => (preset.id === input.id ? input : preset)) : [input, ...agentPresetStore];
+    const apid = input.apid ?? String(input.id);
+    const normalized = { ...input, id: apid, apid, intelevel: input.intelevel ?? input.level };
+    agentPresetStore = agentPresetStore.some((preset) => String(preset.apid ?? preset.id) === apid) ? agentPresetStore.map((preset) => (String(preset.apid ?? preset.id) === apid ? normalized : preset)) : [normalized, ...agentPresetStore];
     syncConsoleAgents();
-    return delay(input);
+    return delay(structuredClone(normalized));
   },
 
   deleteAgentPreset: async (id) => {
-    const exists = agentPresetStore.some((preset) => preset.id === id);
-    agentPresetStore = agentPresetStore.filter((preset) => preset.id !== id || preset.category === "system");
+    const exists = agentPresetStore.some((preset) => String(preset.apid ?? preset.id) === id);
+    agentPresetStore = agentPresetStore.filter((preset) => String(preset.apid ?? preset.id) !== id || preset.category === "system");
     syncConsoleAgents();
     return delay(exists);
   },
@@ -226,30 +242,12 @@ export const mockBackend: OperationsBackend = {
 
   listSystemAgentDefinitions: () => delay(structuredClone(systemAgents)),
 
-  updateLlmConfig: async (input: LlmConfig) => {
-    const nextLevels = input.level === undefined
-      ? consoleStore.llmLevels
-      : (consoleStore.llmLevels ?? llmLevels).map((level) => level.level === input.level ? {
-          ...level,
-          baseUrl: input.baseUrl ?? level.baseUrl,
-          apiKey: input.apiKey ?? level.apiKey,
-          modelName: input.model,
-          systemPrompt: input.systemPrompt,
-          context: input.context ?? level.context,
-          maxToolRounds: input.maxToolRounds ?? level.maxToolRounds,
-        } : level);
-    consoleStore = { ...consoleStore, llmConfig: input, llmLevels: nextLevels };
-    documentLlmConfigStore = uiToDocumentLlmConfig(input, documentLlmConfigStore);
-    consoleStore.documentLlmConfig = documentLlmConfigStore;
-    return delay(input);
-  },
-
   updateAgentConfig: async (input: AgentConfig) => {
     consoleStore = {
       ...consoleStore,
-      agents: consoleStore.agents.map((agent) => (agent.id === input.id ? input : agent)),
+      agents: consoleStore.agents.map((agent) => (String(agent.id) === String(input.id) ? input : agent)),
     };
-    agentPresetStore = agentPresetStore.map((preset) => (preset.id === input.id ? { ...preset, enabled: input.enabled, description: input.description, updated_at: input.updatedAt } : preset));
+    agentPresetStore = agentPresetStore.map((preset) => (String(preset.apid ?? preset.id) === String(input.apid ?? input.id) ? { ...preset, enabled: input.enabled, description: input.description, updated_at: input.updatedAt } : preset));
     consoleStore.agentPresets = agentPresetStore;
     return delay(input);
   },
@@ -376,13 +374,18 @@ function executeSendChatMessage(input: SendChatMessageInput) {
   if (input.action === "send") {
     const index = crmConversationStore.findIndex((item) => item.contact_ali_id === input.contact || item.contact_ali_id === input.conversationId);
     const target = crmConversationStore[index] ?? crmConversationStore[0];
+    const externalMid = `msg-${Date.now()}`;
     const message: CrmMessage = {
       table_name: "message_mock",
       cid: target.contact_ali_id,
-      mid: `msg-${Date.now()}`,
+      mid: externalMid,
+      external_mid: externalMid,
+      sid: target.sid,
       sender_id: selfInfoStore?.ali_id ?? null,
+      read: true,
       created_at: nowText(),
       user_content_type: 1,
+      type: "text",
       content_label: input.text,
       content: input.text,
       is_system: false,
@@ -420,42 +423,8 @@ function buildStatusSnapshot() {
 function syncConsoleAgents() {
   consoleStore = {
     ...consoleStore,
-    agents: agentPresetStore.map((preset) => ({
-      id: preset.id,
-      name: preset.name,
-      category: preset.category,
-      enabled: preset.enabled,
-      capabilities: preset.tools ?? [],
-      description: preset.description,
-      updatedAt: preset.updated_at,
-      prompt: preset.prompt,
-      level: preset.level,
-      apid: preset.apid,
-    })),
+    agents: agentPresetStore.map(agentPresetToConfig),
     agentPresets: agentPresetStore,
-  };
-}
-
-function uiToDocumentLlmConfig(input: LlmConfig, current: DocumentLlmConfig): DocumentLlmConfig {
-  return {
-    base_url: input.baseUrl ?? current.base_url,
-    api_key: input.apiKey ?? current.api_key,
-    model_name: input.model,
-    system_prompt: input.systemPrompt,
-    context: input.context ?? current.context,
-    max_tool_rounds: input.maxToolRounds ?? current.max_tool_rounds,
-  };
-}
-
-function documentToUiLlmConfig(input: DocumentLlmConfig, current: LlmConfig): LlmConfig {
-  return {
-    ...current,
-    model: input.model_name,
-    systemPrompt: input.system_prompt ?? current.systemPrompt,
-    baseUrl: input.base_url,
-    apiKey: input.api_key,
-    context: input.context,
-    maxToolRounds: input.max_tool_rounds,
   };
 }
 

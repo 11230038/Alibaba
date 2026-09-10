@@ -1,12 +1,24 @@
 import type { ID } from "@/types/common";
 
 export interface DocumentLlmConfig {
+  level: number;
   base_url: string;
   api_key: string;
   model_name: string;
   system_prompt?: string;
   context: number;
+  context_limit_output_text?: string;
+  tool_round_limit_output_text?: string;
   max_tool_rounds?: number | null;
+}
+
+export interface DbAgentPreset {
+  apid: string;
+  name: string;
+  description: string;
+  prompt: string;
+  intelevel: number;
+  tools: string[];
 }
 
 export interface AgentPreset {
@@ -20,6 +32,7 @@ export interface AgentPreset {
   enabled: boolean;
   updated_at: string;
   apid?: string;
+  intelevel?: number;
 }
 
 export interface SystemAgentDefinition {
@@ -37,6 +50,8 @@ export interface LlmConfig {
   baseUrl?: string;
   apiKey?: string;
   context?: number;
+  contextLimitOutputText?: string;
+  toolRoundLimitOutputText?: string;
   maxToolRounds?: number | null;
 }
 
@@ -47,7 +62,9 @@ export interface LlmLevelConfig {
   modelName: string;
   systemPrompt: string;
   context: number;
-  maxToolRounds: number;
+  contextLimitOutputText?: string;
+  toolRoundLimitOutputText?: string;
+  maxToolRounds: number | null;
 }
 
 export interface AgentConfig {

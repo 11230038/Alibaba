@@ -101,13 +101,25 @@ export function useChatWorkbench() {
         contact: activeConversation.customer.aliId,
         action: "send",
       });
+      const execution = result.execution;
+      const taskFailed = execution.task_snapshot?.status === "failed";
+      if (!execution.success || taskFailed) {
+        message.error(execution.message || "回复发送失败");
+        return;
+      }
       setActiveConversation(result.conversation);
       setDraft("");
       await reload();
-      message.success("回复已发送（Mock）");
+      message.success("回复已发送");
     } finally {
       setSending(false);
     }
+  }
+
+  async function analyzeConversation() {
+    if (!activeConversation) return;
+    const analysis = await backend.analyzeConversation(activeConversation.id);
+    setActiveConversation((current) => current ? { ...current, analysis } : current);
   }
 
   const activeCard = useMemo(() => activeConversation?.messages.find((item) => item.card?.id === activeCardId)?.card, [activeCardId, activeConversation]);
@@ -131,6 +143,7 @@ export function useChatWorkbench() {
     insertSuggestion,
     analysisOpen,
     setAnalysisOpen,
+    analyzeConversation,
     sendMessage,
     groupMode,
     setGroupMode,

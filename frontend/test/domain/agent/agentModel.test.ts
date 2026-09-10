@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { agentCategoryLabel, canRegenerateAgentTestReply, canUndoAgentTestTurn, filterAgentTestSessionsByCategory, filterAgentsByCategory, formatAgentSessionDate, removeLatestAgentTestTurn, replaceLatestAgentTestReply } from "@/domain/agent/agentModel";
+import { agentCategoryLabel, agentPresetToDbPreset, agentPresetToConfig, canRegenerateAgentTestReply, canUndoAgentTestTurn, documentToLlmLevelConfig, filterAgentTestSessionsByCategory, filterAgentsByCategory, formatAgentSessionDate, isValidToolRoundLimit, llmLevelToDocumentConfig, normalizeAgentLevel, removeLatestAgentTestTurn, replaceLatestAgentTestReply } from "@/domain/agent/agentModel";
+import type { AgentPreset, DocumentLlmConfig } from "@/types/agent";
 import type { AgentConfig, AgentTestSession } from "@/types/agent";
 
 const agents: AgentConfig[] = [
@@ -58,5 +59,43 @@ describe("agent model", () => {
     expect(canUndoAgentTestTurn(session)).toBe(false);
     expect(canRegenerateAgentTestReply(session)).toBe(false);
     expect(removeLatestAgentTestTurn(session)).toBeNull();
+  });
+
+  it("uses apid and intelevel as database authority", () => {
+    const preset: AgentPreset = {
+      id: "ui-id",
+      apid: "agent-db-1",
+      name: "报价 Agent",
+      description: "",
+      prompt: "报价",
+      level: 4,
+      intelevel: 4,
+      tools: ["CRM 查询", "quote_template"],
+      category: "regular",
+      enabled: true,
+      updated_at: "2026-09-10",
+    };
+    expect(agentPresetToDbPreset(preset)).toMatchObject({ apid: "agent-db-1", intelevel: 4, tools: ["crm_query", "quote_template"] });
+    expect(agentPresetToConfig(preset)).toMatchObject({ id: "agent-db-1", apid: "agent-db-1", level: 4, capabilities: ["CRM 查询", "报价模板"] });
+    expect(() => normalizeAgentLevel(5)).toThrow();
+  });
+
+  it("round-trips nullable max tool rounds without converting null to zero", () => {
+    const document: DocumentLlmConfig = {
+      level: 2,
+      base_url: "https://llm.example/v1",
+      api_key: "secret",
+      model_name: "model",
+      system_prompt: "prompt",
+      context: 16000,
+      context_limit_output_text: "context-limit",
+      tool_round_limit_output_text: "tool-limit",
+      max_tool_rounds: null,
+    };
+    const level = documentToLlmLevelConfig(document);
+    expect(level.maxToolRounds).toBeNull();
+    expect(llmLevelToDocumentConfig(level)).toMatchObject({ level: 2, max_tool_rounds: null, context_limit_output_text: "context-limit" });
+    expect(isValidToolRoundLimit(0)).toBe(false);
+    expect(isValidToolRoundLimit(null)).toBe(true);
   });
 });
