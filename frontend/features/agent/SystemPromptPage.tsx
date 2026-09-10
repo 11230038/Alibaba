@@ -21,10 +21,11 @@ export function SystemPromptPage() {
 
   async function save({ systemPrompt }: LevelPromptFormValues) {
     const current = workbench.state?.llmConfig;
-    if (!current) return;
+    const level = current?.level ?? workbench.state?.documentLlmConfig?.level;
+    if (!current || level === undefined) return;
     setSaving(true);
     try {
-      await workbench.saveLlmConfig({ ...current, systemPrompt, level: current.level ?? workbench.state?.documentLlmConfig?.level ?? 0 });
+      await workbench.saveLlmConfig({ ...current, systemPrompt, level });
     } finally {
       setSaving(false);
     }

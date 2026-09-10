@@ -37,6 +37,46 @@ export interface UserInfo {
   email_validated: boolean;
 }
 
+export interface DbCustomer {
+  cid: number;
+  name: string | null;
+  sex?: string | null;
+  birthdate?: string | null;
+  region?: string | null;
+  extra?: Record<string, unknown> | null;
+  image?: Record<string, unknown> | null;
+  created_time?: string;
+  updated_time?: string;
+}
+
+export interface DbPlatform {
+  pid: string;
+  name: string;
+  extra?: Record<string, unknown> | null;
+  created_time?: string;
+  updated_time?: string;
+}
+
+export interface DbAccount {
+  aid: number;
+  cid: number;
+  pid: string | null;
+  account: string | null;
+  nickname: string | null;
+  avatar: string | null;
+  sids: number[] | null;
+  extra?: Record<string, unknown> | null;
+  created_time?: string;
+  updated_time?: string;
+}
+
+export interface DbAccountMapping {
+  amid: number;
+  aid: number;
+  type: string | null;
+  key: string | null;
+}
+
 export interface DbSessionMeta {
   sid: number;
   name: string | null;
@@ -84,6 +124,12 @@ export interface CrmConversation {
 
 export interface DbConversation extends DbSessionMeta {
   messages: DbMessage[];
+  accounts?: DbAccount[];
+  customers?: DbCustomer[];
+  platforms?: DbPlatform[];
+  accountMappings?: DbAccountMapping[];
+  display_updated_at?: string | number | null;
+  display_latest_content?: string | null;
 }
 
 export type ConversationRecord = CrmConversation | DbConversation;
@@ -96,7 +142,7 @@ export interface ChatSyncState {
 
 export interface ConversationGroup {
   label: string;
-  conversations: CrmConversation[];
+  conversations: ConversationRecord[];
   expanded: boolean;
 }
 

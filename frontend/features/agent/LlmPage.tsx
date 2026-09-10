@@ -19,15 +19,13 @@ export function LlmPage() {
     if (workbench.state?.llmLevels?.length) return workbench.state.llmLevels;
     const current = workbench.state?.documentLlmConfig;
     return current ? [{
-      level: 3,
+      level: current.level,
       baseUrl: current.base_url,
       apiKey: current.api_key,
       modelName: current.model_name,
-      systemPrompt: current.system_prompt ?? "",
+      systemPrompt: current.system_prompt,
       context: current.context,
-      contextLimitOutputText: current.context_limit_output_text,
-      toolRoundLimitOutputText: current.tool_round_limit_output_text,
-      maxToolRounds: current.max_tool_rounds ?? null,
+      maxToolRounds: current.max_tool_rounds,
     }] : [];
   }, [workbench.state?.documentLlmConfig, workbench.state?.llmLevels]);
 

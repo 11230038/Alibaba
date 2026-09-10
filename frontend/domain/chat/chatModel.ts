@@ -8,6 +8,9 @@ import type {
   ConversationRecord,
   CrmConversation,
   CrmMessage,
+  DbAccount,
+  DbConversation,
+  DbCustomer,
   DbMessage,
   CustomerStage,
   MessageRole,
@@ -73,29 +76,32 @@ export function buildConversationExport(details: ConversationDetail[]) {
 
 export function toConversationSummary(conversation: ConversationRecord, users: UserInfo[], selfInfo: SelfInfo | null): Conversation {
   const legacyConversation = isLegacyConversation(conversation) ? conversation : undefined;
+  const dbConversation = isDbConversationRecord(conversation) ? conversation : undefined;
   const contactId = legacyConversation?.contact_ali_id ?? String(conversation.sid);
-  const user = resolveUser(contactId, users);
+  const user = legacyConversation ? resolveUser(contactId, users) : undefined;
+  const dbContact = dbConversation ? resolveDbContact(dbConversation, selfInfo) : undefined;
   const messages: Array<CrmMessage | DbMessage> = conversation.messages;
   const unreadCount = messages.filter((message) => isUnreadBuyerMessage(message, selfInfo) && !isSystemMessage(message)).length;
   const stage = inferStage(user, messages);
+  const customerName = dbContact?.customer.name || dbContact?.account.nickname || dbContact?.account.account;
 
   return {
     id: contactId,
     customer: {
-      id: user?.ali_id ?? contactId,
-      aliId: user?.ali_id ?? contactId,
-      name: formatUserName(user),
+      id: dbContact ? String(dbContact.customer.cid) : user?.ali_id ?? contactId,
+      aliId: dbContact?.account.account ?? user?.ali_id ?? contactId,
+      name: customerName ?? formatUserName(user),
       company: user?.company_name ?? "未知公司",
-      country: user?.country_code ?? "未知",
-      email: user?.email ?? "",
-      phone: user?.mobile_number || user?.phone_number || "",
+      country: dbContact?.customer.region ?? user?.country_code ?? "未知",
+      email: typeof dbContact?.account.extra?.email === "string" ? dbContact.account.extra.email : user?.email ?? "",
+      phone: typeof dbContact?.account.extra?.phone === "string" ? dbContact.account.extra.phone : user?.mobile_number || user?.phone_number || "",
       stage,
       tags: buildCustomerTags(user, stage),
       availability: user?.available ? "当前可联系" : "暂未确认",
       behavior: buildBehavior(user),
     },
     latestMessage: latestMessageText(conversation),
-    updatedAt: formatCreatedAt(legacyConversation?.last_created_at ?? getMessageCreatedAt(latestMessage(messages))),
+    updatedAt: formatCreatedAt(legacyConversation?.last_created_at ?? dbConversation?.display_updated_at ?? getMessageCreatedAt(latestMessage(messages))),
     unreadCount,
     status: unreadCount > 0 ? "unread" : stage === "done" ? "closed" : "following",
     priority: priorityFromScore(user?.potential_score ?? 60),
@@ -152,9 +158,10 @@ export function formatCreatedAt(value: unknown) {
 
 function toChatMessage(message: CrmMessage | DbMessage, selfInfo: SelfInfo | null, cards: BusinessCard[]) {
   const legacyMessage = isLegacyMessage(message) ? message : undefined;
-  const card = legacyMessage?.card_id ? cards.find((item) => item.id === legacyMessage.card_id) : undefined;
+  const cardId = legacyMessage?.card_id ?? contentCardId(message.content);
+  const card = cardId ? cards.find((item) => item.id === cardId) : undefined;
   const rawContent = message.content;
-  const role: MessageRole = isSystemMessage(message) ? "system" : card ? "card" : isSellerMessage(message, selfInfo) ? "seller" : "buyer";
+  const role: MessageRole = isSystemMessage(message) ? "system" : card || message.type === "card" ? "card" : isSellerMessage(message, selfInfo) ? "seller" : "buyer";
   return {
     id: messageId(message),
     role,
@@ -172,6 +179,16 @@ function toChatMessage(message: CrmMessage | DbMessage, selfInfo: SelfInfo | nul
 
 function resolveUser(contactAliId: string, users: UserInfo[]) {
   return users.find((user) => user.ali_id === contactAliId || user.login_id === contactAliId || user.encrypt_account_id === contactAliId);
+}
+
+function resolveDbContact(conversation: DbConversation, selfInfo: SelfInfo | null): { account: DbAccount; customer: DbCustomer } | undefined {
+  const accounts = conversation.accounts ?? [];
+  const customers = conversation.customers ?? [];
+  const selfAid = selfInfo?.aid;
+  const buyerAccount = accounts.find((account) => conversation.participants.includes(account.aid) && account.aid !== selfAid) ?? accounts.find((account) => conversation.participants.includes(account.aid));
+  if (!buyerAccount) return undefined;
+  const customer = customers.find((item) => item.cid === buyerAccount.cid);
+  return customer ? { account: buyerAccount, customer } : undefined;
 }
 
 function latestMessage(messages: Array<CrmMessage | DbMessage>) {
@@ -223,12 +240,19 @@ function getMessageCreatedAt(message: CrmMessage | DbMessage) {
 function displayMessageContent(label: string | null | undefined, content: unknown, card?: BusinessCard) {
   if (label) return label;
   if (typeof content === "string") return content;
+  if (content && typeof content === "object" && "label" in content && typeof content.label === "string") return content.label;
+  if (content && typeof content === "object" && "text" in content && typeof content.text === "string") return content.text;
   if (content === null || content === undefined) return card ? "系统推荐卡片" : "";
   try {
     return JSON.stringify(content);
   } catch {
     return card ? "系统推荐卡片" : "";
   }
+}
+
+function contentCardId(content: unknown) {
+  if (!content || typeof content !== "object" || !("card_id" in content)) return undefined;
+  return typeof content.card_id === "string" ? content.card_id : undefined;
 }
 
 function formatUserName(user?: UserInfo) {
@@ -266,7 +290,7 @@ function priorityFromScore(score: number): Conversation["priority"] {
 }
 
 function buildConversationAnalysis(summary: Conversation, conversation: ConversationRecord, users: UserInfo[]): ConversationAnalysis {
-  const contactId = isLegacyConversation(conversation) ? conversation.contact_ali_id : String(conversation.sid);
+  const contactId = isLegacyConversation(conversation) ? conversation.contact_ali_id : summary.customer.aliId ?? String(conversation.sid);
   const user = resolveUser(contactId, users);
   const score = user?.potential_score ?? 60;
   const nextActions = score >= 80 ? ["确认采购数量", "发送报价与认证资料", "约定样品寄送时间"] : ["补充客户关注资料", "确认需求场景"];
@@ -284,12 +308,17 @@ function buildConversationAnalysis(summary: Conversation, conversation: Conversa
 
 function latestMessageText(conversation: ConversationRecord) {
   if (isLegacyConversation(conversation) && conversation.last_content_label) return conversation.last_content_label;
+  if (isDbConversationRecord(conversation) && conversation.display_latest_content) return conversation.display_latest_content;
   const latest = latestMessage(conversation.messages);
   return latest ? displayMessageContent(isLegacyMessage(latest) ? latest.content_label : undefined, latest.content) : "暂无消息";
 }
 
 function isLegacyConversation(conversation: ConversationRecord): conversation is CrmConversation {
   return "contact_ali_id" in conversation;
+}
+
+function isDbConversationRecord(conversation: ConversationRecord): conversation is DbConversation {
+  return "participants" in conversation && Array.isArray(conversation.participants);
 }
 
 function dateGroup(value: string) {

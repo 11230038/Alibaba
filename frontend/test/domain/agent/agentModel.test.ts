@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { agentCategoryLabel, agentPresetToDbPreset, agentPresetToConfig, canRegenerateAgentTestReply, canUndoAgentTestTurn, documentToLlmLevelConfig, filterAgentTestSessionsByCategory, filterAgentsByCategory, formatAgentSessionDate, isValidToolRoundLimit, llmLevelToDocumentConfig, normalizeAgentLevel, removeLatestAgentTestTurn, replaceLatestAgentTestReply } from "@/domain/agent/agentModel";
+import { SYSTEM_AGENT_APIDS, agentCategoryLabel, agentPresetToDbPreset, agentPresetToConfig, canRegenerateAgentTestReply, canUndoAgentTestTurn, dbPresetToAgentPreset, documentToLlmLevelConfig, filterAgentTestSessionsByCategory, filterAgentsByCategory, formatAgentSessionDate, isValidToolRoundLimit, llmLevelToDocumentConfig, normalizeAgentLevel, removeLatestAgentTestTurn, replaceLatestAgentTestReply } from "@/domain/agent/agentModel";
+import { agentPresets } from "@/mock/agentData";
 import type { AgentPreset, DocumentLlmConfig } from "@/types/agent";
 import type { AgentConfig, AgentTestSession } from "@/types/agent";
 
@@ -75,9 +76,29 @@ describe("agent model", () => {
       enabled: true,
       updated_at: "2026-09-10",
     };
-    expect(agentPresetToDbPreset(preset)).toMatchObject({ apid: "agent-db-1", intelevel: 4, tools: ["crm_query", "quote_template"] });
+    expect(agentPresetToDbPreset(preset)).toEqual({
+      apid: "agent-db-1",
+      name: "报价 Agent",
+      description: "",
+      prompt: "报价",
+      intelevel: 4,
+      tools: ["crm_query", "quote_template"],
+    });
     expect(agentPresetToConfig(preset)).toMatchObject({ id: "agent-db-1", apid: "agent-db-1", level: 4, capabilities: ["CRM 查询", "报价模板"] });
     expect(() => normalizeAgentLevel(5)).toThrow();
+  });
+
+  it("derives UI-only agent state from database presets", () => {
+    const preset = dbPresetToAgentPreset({ apid: "agent-db-2", name: "DB Agent", description: "", prompt: "prompt", intelevel: 0, tools: [] });
+    expect(preset).toMatchObject({ id: "agent-db-2", category: "regular", enabled: true, level: 0, intelevel: 0 });
+    expect(agentPresetToDbPreset(preset)).toEqual({ apid: "agent-db-2", name: "DB Agent", description: "", prompt: "prompt", intelevel: 0, tools: [] });
+  });
+
+  it("matches system agent SQL seed levels", () => {
+    const systemApids = new Set<string>(Object.values(SYSTEM_AGENT_APIDS));
+    const systemPresets = agentPresets.filter((preset) => systemApids.has(String(preset.apid)));
+    expect(systemPresets).toHaveLength(4);
+    expect(systemPresets.every((preset) => preset.intelevel === 0 && preset.level === 0 && preset.tools?.length === 0)).toBe(true);
   });
 
   it("round-trips nullable max tool rounds without converting null to zero", () => {
@@ -88,13 +109,11 @@ describe("agent model", () => {
       model_name: "model",
       system_prompt: "prompt",
       context: 16000,
-      context_limit_output_text: "context-limit",
-      tool_round_limit_output_text: "tool-limit",
       max_tool_rounds: null,
     };
     const level = documentToLlmLevelConfig(document);
     expect(level.maxToolRounds).toBeNull();
-    expect(llmLevelToDocumentConfig(level)).toMatchObject({ level: 2, max_tool_rounds: null, context_limit_output_text: "context-limit" });
+    expect(llmLevelToDocumentConfig(level)).toMatchObject({ level: 2, max_tool_rounds: null });
     expect(isValidToolRoundLimit(0)).toBe(false);
     expect(isValidToolRoundLimit(null)).toBe(true);
   });

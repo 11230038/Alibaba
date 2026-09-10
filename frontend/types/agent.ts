@@ -5,11 +5,9 @@ export interface DocumentLlmConfig {
   base_url: string;
   api_key: string;
   model_name: string;
-  system_prompt?: string;
+  system_prompt: string;
   context: number;
-  context_limit_output_text?: string;
-  tool_round_limit_output_text?: string;
-  max_tool_rounds?: number | null;
+  max_tool_rounds: number | null;
 }
 
 export interface DbAgentPreset {
@@ -50,8 +48,6 @@ export interface LlmConfig {
   baseUrl?: string;
   apiKey?: string;
   context?: number;
-  contextLimitOutputText?: string;
-  toolRoundLimitOutputText?: string;
   maxToolRounds?: number | null;
 }
 
@@ -62,8 +58,6 @@ export interface LlmLevelConfig {
   modelName: string;
   systemPrompt: string;
   context: number;
-  contextLimitOutputText?: string;
-  toolRoundLimitOutputText?: string;
   maxToolRounds: number | null;
 }
 

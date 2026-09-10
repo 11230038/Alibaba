@@ -2,10 +2,77 @@ import { SYSTEM_AGENT_APIDS, agentPresetToConfig } from "@/domain/agent/agentMod
 import type { AgentConsoleState, AgentPreset, DocumentLlmConfig, LlmLevelConfig, SystemAgentDefinition } from "@/types/agent";
 
 const systemAgentSources = [
-  { apid: SYSTEM_AGENT_APIDS.translation, name: "翻译 Agent", level: 1, prompt: "将买家消息翻译成自然中文，保留贸易术语。" },
-  { apid: SYSTEM_AGENT_APIDS.replySuggestion, name: "回复建议 Agent", level: 2, prompt: "根据会话上下文生成不超过三条可发送英文回复。" },
-  { apid: SYSTEM_AGENT_APIDS.intentAnalysis, name: "客户意图分析 Agent", level: 3, prompt: "判断客户采购意图、关注点、风险和下一步行动。" },
-  { apid: SYSTEM_AGENT_APIDS.stageAnalysis, name: "客户阶段分析 Agent", level: 3, prompt: "识别客户所处阶段并给出推进策略。" },
+  {
+    apid: SYSTEM_AGENT_APIDS.translation,
+    name: "翻译",
+    description: "翻译",
+    prompt: `你是聊天消息翻译助手。
+
+请把用户输入 JSON 中每个 items[].text 翻译成简体中文。
+
+输出要求：
+1) 只输出 JSON，不要输出解释性文字。
+2) 输出格式必须是：{"translations": {"<text_hash>": "<translation or null>"}}。
+3) 如果某条文本已经是简体中文，对应 text_hash 返回 null。
+4) 不要遗漏任何 text_hash。
+5) 不要编造原文不存在的信息。`,
+    intelevel: 0,
+    tools: [],
+  },
+  {
+    apid: SYSTEM_AGENT_APIDS.replySuggestion,
+    name: "建议",
+    description: "建议",
+    prompt: `你是一名阿里巴巴国际站供应商客服，正在处理买家的询盘对话。
+请根据【对话记录】生成可直接发送给买家的回复建议。
+
+输出要求：
+1) 只输出 JSON，字段见 schema。
+2) 先判断买家主要语言 buyer_language，然后为每条建议同时给出中文 zh 和买家语言 reply。
+3) reply 必须使用买家在对话中使用的语言，不要默认翻译为英文。
+4) 最多给出 3 条建议，按推荐顺序排列。
+5) 语气专业、友好、简洁，优先推进成交。
+6) 不要编造任何无法从对话中确定的信息；信息不足时用提问补齐。
+7) 不要提及你是 AI，也不要输出解释性文字。
+
+Return JSON only with this exact top-level shape:
+{"buyer_language": "English", "items": [{"zh": "中文建议", "reply": "buyer language reply"}]}
+Do not use top-level keys such as suggestions, replies, or reply_suggestions.`,
+    intelevel: 0,
+    tools: [],
+  },
+  {
+    apid: SYSTEM_AGENT_APIDS.intentAnalysis,
+    name: "客户意图分析",
+    description: "客户意图分析",
+    prompt: `你是客户意图分析助手。
+
+请基于用户提供的【任务】和【聊天记录】分析客户采购意图、关注点和下一步动作。结论必须来自聊天内容，不要编造未出现的信息。
+
+输出要求：
+1) 输出中文。
+2) 结构清晰，重点给出可执行建议。
+3) 优先输出 JSON：{"intent": "客户意图", "evidence": ["依据"], "concerns": ["顾虑"], "next_actions": ["下一步建议"]}。
+4) 如果信息不足，请明确说明缺少哪些判断依据。`,
+    intelevel: 0,
+    tools: [],
+  },
+  {
+    apid: SYSTEM_AGENT_APIDS.stageAnalysis,
+    name: "客户所处阶段分析",
+    description: "客户所处阶段分析",
+    prompt: `你是客户阶段分析助手。
+
+请基于用户提供的【任务】和【聊天记录】分析客户当前所处阶段。结论必须来自聊天内容，不要编造未出现的信息。
+
+输出要求：
+1) 输出中文。
+2) 结构清晰，重点给出可执行建议。
+3) 优先输出 JSON：{"stage": "客户阶段", "evidence": ["依据"], "next_actions": ["下一步建议"], "confidence": "置信度"}。
+4) 如果信息不足，请明确说明缺少哪些判断依据。`,
+    intelevel: 0,
+    tools: [],
+  },
 ] as const;
 
 const regularAgentSources = [
@@ -38,8 +105,6 @@ export const llmLevels: LlmLevelConfig[] = Array.from({ length: 5 }, (_, level) 
   modelName: level >= 3 ? "claude-sonnet-5" : "claude-haiku-4-5-20251001",
   systemPrompt: `Level ${level} agent prompt for Alibaba seller workflow.`,
   context: 12000 + level * 4000,
-  contextLimitOutputText: "上下文超过限制",
-  toolRoundLimitOutputText: "调用超过次数限制",
   maxToolRounds: 3 + level,
 }));
 
@@ -52,15 +117,13 @@ export const documentLlmConfig: DocumentLlmConfig = {
   model_name: llmLevel.modelName,
   system_prompt: "你是阿里国际站卖家助手，回答必须准确、礼貌、商业化，并保留客户上下文。",
   context: llmLevel.context,
-  context_limit_output_text: llmLevel.contextLimitOutputText,
-  tool_round_limit_output_text: llmLevel.toolRoundLimitOutputText,
   max_tool_rounds: llmLevel.maxToolRounds,
 };
 
 export const systemAgents: SystemAgentDefinition[] = systemAgentSources.map((agent) => ({
   display_name: agent.name,
   apid: agent.apid,
-  description: agent.prompt,
+  description: agent.description,
 }));
 
 export const agentPresets: AgentPreset[] = [
@@ -70,11 +133,11 @@ export const agentPresets: AgentPreset[] = [
     name: agent.name,
     category: "system" as const,
     enabled: true,
-    description: agent.prompt,
+    description: agent.description,
     prompt: agent.prompt,
-    level: agent.level,
-    intelevel: agent.level,
-    tools: [],
+    level: agent.intelevel,
+    intelevel: agent.intelevel,
+    tools: [...agent.tools],
     updated_at: defaultUpdatedAt,
   })),
   ...regularAgentSources.map((agent) => ({
@@ -100,12 +163,10 @@ export const agentConsole: AgentConsoleState = {
     model: llmLevel.modelName,
     temperature: 0.4,
     maxTokens: 4096,
-    systemPrompt: documentLlmConfig.system_prompt ?? "",
+    systemPrompt: documentLlmConfig.system_prompt,
     baseUrl: documentLlmConfig.base_url,
     apiKey: documentLlmConfig.api_key,
     context: documentLlmConfig.context,
-    contextLimitOutputText: documentLlmConfig.context_limit_output_text,
-    toolRoundLimitOutputText: documentLlmConfig.tool_round_limit_output_text,
     maxToolRounds: documentLlmConfig.max_tool_rounds ?? null,
   },
   agents: agentPresets.map(agentPresetToConfig),

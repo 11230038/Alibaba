@@ -116,6 +116,22 @@ export function agentPresetToDbPreset(preset: AgentPreset): DbAgentPreset {
   };
 }
 
+export function dbPresetToAgentPreset(input: DbAgentPreset, current?: AgentPreset, updatedAt = current?.updated_at ?? ""): AgentPreset {
+  return {
+    id: input.apid,
+    apid: input.apid,
+    name: input.name,
+    category: current?.category ?? (isSystemAgentApid(input.apid) ? "system" : "regular"),
+    enabled: current?.enabled ?? true,
+    description: input.description,
+    prompt: input.prompt,
+    level: normalizeAgentLevel(input.intelevel),
+    intelevel: normalizeAgentLevel(input.intelevel),
+    tools: normalizeAgentTools(input.tools),
+    updated_at: updatedAt,
+  };
+}
+
 export function agentPresetToConfig(preset: AgentPreset): AgentConfig {
   const apid = agentPresetApid(preset);
   return {
@@ -130,6 +146,10 @@ export function agentPresetToConfig(preset: AgentPreset): AgentConfig {
     level: agentPresetLevel(preset),
     apid,
   };
+}
+
+export function isSystemAgentApid(apid: string) {
+  return Object.values(SYSTEM_AGENT_APIDS).includes(apid as (typeof SYSTEM_AGENT_APIDS)[keyof typeof SYSTEM_AGENT_APIDS]);
 }
 
 export function agentConfigToPreset(agent: AgentConfig, values: { name: string; description?: string; prompt: string; level: number; capabilities?: string[] }, updatedAt: string): AgentPreset {
@@ -180,15 +200,13 @@ export function documentToLlmLevelConfig(input: DocumentLlmConfig): LlmLevelConf
     baseUrl: input.base_url,
     apiKey: input.api_key,
     modelName: input.model_name,
-    systemPrompt: input.system_prompt ?? "",
+    systemPrompt: input.system_prompt,
     context: input.context,
-    contextLimitOutputText: input.context_limit_output_text,
-    toolRoundLimitOutputText: input.tool_round_limit_output_text,
     maxToolRounds: normalizeToolRoundLimit(input.max_tool_rounds),
   };
 }
 
-export function llmLevelToDocumentConfig(config: LlmLevelConfig, current?: DocumentLlmConfig): DocumentLlmConfig {
+export function llmLevelToDocumentConfig(config: LlmLevelConfig): DocumentLlmConfig {
   return {
     level: normalizeAgentLevel(config.level),
     base_url: config.baseUrl,
@@ -196,8 +214,6 @@ export function llmLevelToDocumentConfig(config: LlmLevelConfig, current?: Docum
     model_name: config.modelName,
     system_prompt: config.systemPrompt,
     context: config.context,
-    context_limit_output_text: config.contextLimitOutputText ?? current?.context_limit_output_text,
-    tool_round_limit_output_text: config.toolRoundLimitOutputText ?? current?.tool_round_limit_output_text,
     max_tool_rounds: normalizeToolRoundLimit(config.maxToolRounds),
   };
 }
@@ -207,12 +223,10 @@ export function documentToUiLlmConfig(input: DocumentLlmConfig, current: LlmConf
     ...current,
     level: input.level,
     model: input.model_name,
-    systemPrompt: input.system_prompt ?? current.systemPrompt,
+    systemPrompt: input.system_prompt,
     baseUrl: input.base_url,
     apiKey: input.api_key,
     context: input.context,
-    contextLimitOutputText: input.context_limit_output_text,
-    toolRoundLimitOutputText: input.tool_round_limit_output_text,
     maxToolRounds: normalizeToolRoundLimit(input.max_tool_rounds),
   };
 }

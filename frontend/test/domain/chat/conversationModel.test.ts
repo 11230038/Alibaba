@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { toConversationDetail, toConversationSummary } from "@/domain/chat/chatModel";
 import type { BusinessCard } from "@/types/cards";
-import type { CrmConversation, UserInfo } from "@/types/chat";
+import type { CrmConversation, DbConversation, UserInfo } from "@/types/chat";
 import type { SelfInfo } from "@/types/home";
 
 const selfInfo: SelfInfo = {
@@ -136,7 +136,35 @@ describe("conversation model adapters", () => {
 
     expect(detail.id).toBe("42");
     expect(detail.unreadCount).toBe(1);
-    expect(detail.messages[0]).toMatchObject({ id: "db-msg-1", sid: 42, externalMid: "db-msg-1", senderAid: 101, read: false, content: '{"text":"需要报价"}' });
+    expect(detail.messages[0]).toMatchObject({ id: "db-msg-1", sid: 42, externalMid: "db-msg-1", senderAid: 101, read: false, content: "需要报价", rawContent: { text: "需要报价" } });
     expect(detail.messages[1].id).toBe("db-msg-2");
+  });
+
+  it("resolves database customers through session participants and accounts", () => {
+    const dbConversation: DbConversation = {
+      sid: 77,
+      name: "DB session",
+      participants: [501, 9001],
+      accounts: [
+        { aid: 501, cid: 301, pid: "alibaba", account: "buyer-account", nickname: "Buyer Nick", avatar: null, sids: [77], extra: { email: "db@example.com", phone: "+86 123" } },
+        { aid: 9001, cid: 901, pid: "alibaba", account: "seller-account", nickname: "Seller", avatar: null, sids: [77], extra: null },
+      ],
+      customers: [
+        { cid: 301, name: "DB Customer", region: "Germany" },
+        { cid: 901, name: "Seller Customer", region: "China" },
+      ],
+      display_updated_at: "2026-09-08 11:00",
+      display_latest_content: "最新聚合消息",
+      messages: [
+        { external_mid: "db-rel-1", sid: 77, sender: 501, read: false, content: "Hello", type: "text" },
+        { external_mid: "db-rel-2", sid: 77, sender: 9001, read: true, content: "Hi", type: "text" },
+      ],
+    };
+
+    const detail = toConversationDetail(dbConversation, [], { ...selfInfo, aid: 9001 });
+    expect(detail.id).toBe("77");
+    expect(detail.customer).toMatchObject({ id: "301", aliId: "buyer-account", name: "DB Customer", country: "Germany", email: "db@example.com", phone: "+86 123" });
+    expect(detail.latestMessage).toBe("最新聚合消息");
+    expect(detail.messages.map((message) => message.role)).toEqual(["buyer", "seller"]);
   });
 });

@@ -2,9 +2,9 @@
 
 import { App } from "antd";
 import { createContext, createElement, useContext, useEffect, useState, type ReactNode } from "react";
-import { agentConfigToPreset, agentPresetToConfig, documentToUiLlmConfig } from "@/domain/agent/agentModel";
+import { agentConfigToPreset, agentPresetToConfig, agentPresetToDbPreset, createRegularAgentPreset, dbPresetToAgentPreset, documentToLlmLevelConfig, documentToUiLlmConfig } from "@/domain/agent/agentModel";
 import { backend } from "@/services/client";
-import type { AgentConfig, AgentConsoleState, AgentPreset, DocumentLlmConfig, LlmConfig, LlmLevelConfig } from "@/types/agent";
+import type { AgentConfig, AgentConsoleState, DbAgentPreset, DocumentLlmConfig, LlmConfig, LlmLevelConfig } from "@/types/agent";
 import type { AgentEditValues } from "../AgentEditModal";
 
 function nowText() {
@@ -28,16 +28,15 @@ function useAgentWorkbenchController() {
 
   async function saveLlmConfig(config: LlmConfig) {
     const current = state?.documentLlmConfig;
-    const level = config.level ?? current?.level ?? state?.llmConfig.level ?? 0;
+    const level = config.level ?? current?.level ?? state?.llmConfig.level;
+    if (level === undefined) throw new Error("LLM 配置缺少 level");
     const documentConfig: DocumentLlmConfig = {
       level,
       base_url: config.baseUrl ?? current?.base_url ?? "",
       api_key: config.apiKey ?? current?.api_key ?? "",
       model_name: config.model,
       system_prompt: config.systemPrompt,
-      context: config.context ?? current?.context ?? 16000,
-      context_limit_output_text: config.contextLimitOutputText ?? current?.context_limit_output_text,
-      tool_round_limit_output_text: config.toolRoundLimitOutputText ?? current?.tool_round_limit_output_text,
+      context: config.context ?? current?.context ?? 12000,
       max_tool_rounds: config.maxToolRounds === undefined ? (current?.max_tool_rounds ?? null) : config.maxToolRounds,
     };
     const saved = await backend.saveLlmConfig(documentConfig);
@@ -46,29 +45,16 @@ function useAgentWorkbenchController() {
       model: saved.model_name,
       temperature: 0.4,
       maxTokens: 4096,
-      systemPrompt: saved.system_prompt ?? "",
+      systemPrompt: saved.system_prompt,
     });
     setState((currentState) => {
       if (!currentState) return currentState;
-      const nextLevels = (currentState.llmLevels ?? []).map((item) => item.level === saved.level ? {
-        ...item,
-        ...documentToUiLlmConfig(saved, {
-          level: item.level,
-          model: item.modelName,
-          temperature: currentState.llmConfig.temperature,
-          maxTokens: currentState.llmConfig.maxTokens,
-          systemPrompt: item.systemPrompt,
-        }),
-        level: item.level,
-        modelName: saved.model_name,
-        baseUrl: saved.base_url,
-        apiKey: saved.api_key,
-        systemPrompt: saved.system_prompt ?? item.systemPrompt,
-        context: saved.context,
-        contextLimitOutputText: saved.context_limit_output_text,
-        toolRoundLimitOutputText: saved.tool_round_limit_output_text,
-        maxToolRounds: saved.max_tool_rounds ?? null,
-      } : item);
+      const savedLevel = documentToLlmLevelConfig(saved);
+      const existingLevels = currentState.llmLevels ?? [];
+      const hasLevel = existingLevels.some((item) => item.level === savedLevel.level);
+      const nextLevels = hasLevel
+        ? existingLevels.map((item) => item.level === savedLevel.level ? savedLevel : item)
+        : [...existingLevels, savedLevel].sort((a, b) => a.level - b.level);
       return { ...currentState, documentLlmConfig: saved, llmConfig, llmLevels: nextLevels };
     });
     message.success("LLM 参数已保存");
@@ -84,17 +70,15 @@ function useAgentWorkbenchController() {
       baseUrl: config.baseUrl,
       apiKey: config.apiKey,
       context: config.context,
-      contextLimitOutputText: config.contextLimitOutputText,
-      toolRoundLimitOutputText: config.toolRoundLimitOutputText,
       maxToolRounds: config.maxToolRounds,
     });
   }
 
   async function toggleAgent(agent: AgentConfig, enabled: boolean) {
-    const updatedAt = new Date().toLocaleString("zh-CN", { hour12: false }).replaceAll("/", "-");
-    const updated = await backend.updateAgentConfig({ ...agent, enabled, updatedAt });
+    const updatedAt = nowText();
+    const updated: AgentConfig = { ...agent, enabled, updatedAt };
     if (agent.prompt && agent.level !== undefined) {
-      await backend.saveAgentPreset({
+      await backend.saveAgentPreset(agentPresetToDbPreset({
         id: agent.id,
         name: agent.name,
         category: agent.category,
@@ -105,7 +89,7 @@ function useAgentWorkbenchController() {
         tools: agent.capabilities,
         updated_at: updatedAt,
         apid: agent.apid,
-      });
+      }));
     }
     setState((current) => current ? { ...current, agents: current.agents.map((item) => item.id === updated.id ? updated : item) } : current);
   }
@@ -116,7 +100,7 @@ function useAgentWorkbenchController() {
     const preset = agentConfigToPreset(agent, values, updatedAt);
     setAgentMutationId(String(preset.apid ?? preset.id));
     try {
-      const saved = await backend.saveAgentPreset(preset);
+      const saved = await backend.saveAgentPreset(agentPresetToDbPreset(preset));
       syncAgentState(saved);
       message.success("Agent 已保存");
     } finally {
@@ -126,23 +110,10 @@ function useAgentWorkbenchController() {
 
   async function createAgent(values: AgentEditValues) {
     if (agentMutationId) return;
-    const apid = `agent-${Date.now()}`;
-    const preset: AgentPreset = {
-      id: apid,
-      apid,
-      name: values.name.trim(),
-      category: "regular",
-      enabled: true,
-      description: values.description.trim(),
-      prompt: values.prompt.trim(),
-      level: values.level,
-      intelevel: values.level,
-      tools: values.capabilities,
-      updated_at: nowText(),
-    };
-    setAgentMutationId(apid);
+    const preset = createRegularAgentPreset(values, nowText());
+    setAgentMutationId(preset.apid);
     try {
-      const saved = await backend.saveAgentPreset(preset);
+      const saved = await backend.saveAgentPreset(agentPresetToDbPreset(preset));
       syncAgentState(saved);
       message.success("Agent 已创建");
     } finally {
@@ -178,18 +149,20 @@ function useAgentWorkbenchController() {
     }
   }
 
-  function syncAgentState(preset: AgentPreset) {
-    const updated = agentPresetToConfig(preset);
-    const agentId = String(updated.id);
+  function syncAgentState(dbPreset: DbAgentPreset) {
     setState((current) => {
       if (!current) return current;
+      const currentPreset = current.agentPresets?.find((item) => String(item.apid ?? item.id) === dbPreset.apid);
+      const preset = dbPresetToAgentPreset(dbPreset, currentPreset, currentPreset?.updated_at ?? nowText());
+      const updated = agentPresetToConfig(preset);
+      const agentId = String(updated.id);
       const hasAgent = current.agents.some((item) => String(item.id) === agentId);
-      const hasPreset = current.agentPresets?.some((item) => String(item.id) === agentId) ?? false;
+      const hasPreset = current.agentPresets?.some((item) => String(item.apid ?? item.id) === agentId) ?? false;
       return {
         ...current,
         agents: hasAgent ? current.agents.map((item) => String(item.id) === agentId ? updated : item) : [updated, ...current.agents],
         agentPresets: current.agentPresets
-          ? (hasPreset ? current.agentPresets.map((item) => String(item.id) === agentId ? preset : item) : [preset, ...current.agentPresets])
+          ? (hasPreset ? current.agentPresets.map((item) => String(item.apid ?? item.id) === agentId ? preset : item) : [preset, ...current.agentPresets])
           : [preset],
       };
     });

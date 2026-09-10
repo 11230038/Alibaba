@@ -1,11 +1,11 @@
-import type { AgentConfig, AgentConsoleState, AgentPreset, AgentTestInput, AgentTestResult, AgentTestSession, DocumentLlmConfig, SystemAgentDefinition } from "@/types/agent";
+import type { AgentConsoleState, AgentTestInput, AgentTestResult, AgentTestSession, DbAgentPreset, DocumentLlmConfig, SystemAgentDefinition } from "@/types/agent";
 import type {
   AgentAnalysisResult,
   AssistantSuggestion,
   Conversation,
   ConversationAnalysis,
   ConversationDetail,
-  CrmConversation,
+  ConversationRecord,
   ExportConversationsInput,
   ExportConversationsResult,
   ReplySuggestionInput,
@@ -29,7 +29,7 @@ export interface OperationsBackend {
   getHomeDashboard(): Promise<HomeDashboard>;
 
   refreshChatData(wait?: boolean): Promise<{ ready: boolean; self_ali_id: string; reason: string }>;
-  listCrmConversations(selfAliId: string): Promise<CrmConversation[]>;
+  listCrmConversations(selfAliId: string): Promise<ConversationRecord[]>;
   getUserInfo(identifier: string): Promise<UserInfo | null>;
   requestTranslations(input: RequestTranslationsInput): Promise<RequestTranslationsResult>;
   getTranslation(text: string): Promise<string | null>;
@@ -58,11 +58,10 @@ export interface OperationsBackend {
 
   getAgentConsole(): Promise<AgentConsoleState>;
   saveLlmConfig(input: DocumentLlmConfig): Promise<DocumentLlmConfig>;
-  saveAgentPreset(input: AgentPreset): Promise<AgentPreset>;
+  saveAgentPreset(input: DbAgentPreset): Promise<DbAgentPreset>;
   deleteAgentPreset(id: string): Promise<boolean>;
-  restoreSystemAgentDefault(apid: string): Promise<AgentPreset>;
+  restoreSystemAgentDefault(apid: string): Promise<DbAgentPreset>;
   listSystemAgentDefinitions(): Promise<SystemAgentDefinition[]>;
-  updateAgentConfig(input: AgentConfig): Promise<AgentConfig>;
   runAgentTest(input: AgentTestInput): Promise<AgentTestResult>;
   listAgentTestHistory(): Promise<AgentTestSession[]>;
   undoAgentTestSession(id: string): Promise<AgentTestSession>;

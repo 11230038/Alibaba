@@ -6,10 +6,10 @@ import { mockSelfInfo } from "@/mock/selfData";
 import { keyStatus, nodeResult, proxyStatus, receiverStatus, systemStatus, taskSnapshots } from "@/mock/statusData";
 import { buildConversationExport, conversationToTuples, replySuggestionsToAssistantSuggestions, toConversationDetail, toConversationSummary } from "@/domain/chat/chatModel";
 import { buildSystemStatusSnapshot, taskSnapshotToTaskItem } from "@/domain/status/statusModel";
-import { agentPresetToConfig, documentToUiLlmConfig, getLatestAgentTestTurn, removeLatestAgentTestTurn, replaceLatestAgentTestReply } from "@/domain/agent/agentModel";
-import type { AgentConfig, AgentConsoleState, AgentPreset, AgentTestSession, DocumentLlmConfig } from "@/types/agent";
+import { agentPresetToConfig, dbPresetToAgentPreset, documentToLlmLevelConfig, documentToUiLlmConfig, getLatestAgentTestTurn, removeLatestAgentTestTurn, replaceLatestAgentTestReply } from "@/domain/agent/agentModel";
+import type { AgentConsoleState, AgentPreset, AgentTestSession, DbAgentPreset, DocumentLlmConfig, LlmLevelConfig } from "@/types/agent";
 import type { BusinessCard } from "@/types/cards";
-import type { ConversationDetail, CrmConversation, CrmMessage, SendChatMessageInput, UserInfo } from "@/types/chat";
+import type { ConversationDetail, ConversationRecord, CrmMessage, DbConversation, DbMessage, SendChatMessageInput, UserInfo } from "@/types/chat";
 import type { HomeDashboard, SelfInfo } from "@/types/home";
 import type { KeyStatus, NetworkStatus, NodeTestResult, SystemStatusSnapshot, TaskSnapshot } from "@/types/status";
 import type { OperationsBackend } from "./interfaces";
@@ -34,7 +34,7 @@ const initialState = {
 
 let selfInfoStore: SelfInfo | null = structuredClone(initialState.selfInfo);
 let userStore: UserInfo[] = structuredClone(initialState.users);
-let crmConversationStore: CrmConversation[] = structuredClone(initialState.crmConversations);
+let crmConversationStore: ConversationRecord[] = structuredClone(initialState.crmConversations);
 let businessCardStore: BusinessCard[] = structuredClone(initialState.cards);
 let statusStore: SystemStatusSnapshot = structuredClone(initialState.status);
 const keyStatusStore: KeyStatus = structuredClone(initialState.keyStatus);
@@ -43,6 +43,7 @@ let receiverStatusStore: NetworkStatus = structuredClone(initialState.receiverSt
 const nodeResultStore: NodeTestResult = structuredClone(initialState.nodeResult);
 let taskSnapshotStore: TaskSnapshot[] = structuredClone(initialState.taskSnapshots);
 let consoleStore: AgentConsoleState = structuredClone(initialState.console);
+let llmLevelStore: LlmLevelConfig[] = structuredClone(llmLevels);
 let documentLlmConfigStore: DocumentLlmConfig = structuredClone(initialState.llmConfig);
 let agentPresetStore: AgentPreset[] = structuredClone(initialState.agentPresets);
 const translationStore = new Map<string, string>();
@@ -56,6 +57,9 @@ export const mockBackend: OperationsBackend = {
     crmConversationStore = structuredClone(initialState.crmConversations);
     businessCardStore = structuredClone(initialState.cards);
     taskSnapshotStore = structuredClone(initialState.taskSnapshots);
+    llmLevelStore = structuredClone(llmLevels);
+    documentLlmConfigStore = structuredClone(initialState.llmConfig);
+    consoleStore = structuredClone(initialState.console);
     statusStore = buildStatusSnapshot();
     translationStore.clear();
     return delay(undefined);
@@ -202,28 +206,21 @@ export const mockBackend: OperationsBackend = {
     documentLlmConfigStore = structuredClone(input);
     const currentUi = consoleStore.llmConfig;
     const nextUi = documentToUiLlmConfig(documentLlmConfigStore, currentUi);
-    const nextLevels = (consoleStore.llmLevels ?? llmLevels).map((level) => level.level === input.level ? {
-      ...level,
-      level: input.level,
-      baseUrl: input.base_url,
-      apiKey: input.api_key,
-      modelName: input.model_name,
-      systemPrompt: input.system_prompt ?? level.systemPrompt,
-      context: input.context,
-      contextLimitOutputText: input.context_limit_output_text,
-      toolRoundLimitOutputText: input.tool_round_limit_output_text,
-      maxToolRounds: input.max_tool_rounds ?? null,
-    } : level);
-    consoleStore = { ...consoleStore, documentLlmConfig: documentLlmConfigStore, llmConfig: nextUi, llmLevels: nextLevels };
+    const savedLevel = documentToLlmLevelConfig(documentLlmConfigStore);
+    const hasLevel = llmLevelStore.some((level) => level.level === savedLevel.level);
+    llmLevelStore = hasLevel
+      ? llmLevelStore.map((level) => level.level === savedLevel.level ? savedLevel : level)
+      : [...llmLevelStore, savedLevel].sort((a, b) => a.level - b.level);
+    consoleStore = { ...consoleStore, documentLlmConfig: documentLlmConfigStore, llmConfig: nextUi, llmLevels: llmLevelStore };
     return delay(structuredClone(documentLlmConfigStore));
   },
 
-  saveAgentPreset: async (input) => {
-    const apid = input.apid ?? String(input.id);
-    const normalized = { ...input, id: apid, apid, intelevel: input.intelevel ?? input.level };
-    agentPresetStore = agentPresetStore.some((preset) => String(preset.apid ?? preset.id) === apid) ? agentPresetStore.map((preset) => (String(preset.apid ?? preset.id) === apid ? normalized : preset)) : [normalized, ...agentPresetStore];
+  saveAgentPreset: async (input: DbAgentPreset) => {
+    const current = agentPresetStore.find((preset) => String(preset.apid ?? preset.id) === input.apid);
+    const normalized = dbPresetToAgentPreset(input, current, current?.updated_at ?? nowText());
+    agentPresetStore = current ? agentPresetStore.map((preset) => (String(preset.apid ?? preset.id) === input.apid ? normalized : preset)) : [normalized, ...agentPresetStore];
     syncConsoleAgents();
-    return delay(structuredClone(normalized));
+    return delay(structuredClone(input));
   },
 
   deleteAgentPreset: async (id) => {
@@ -234,23 +231,21 @@ export const mockBackend: OperationsBackend = {
   },
 
   restoreSystemAgentDefault: async (apid) => {
-    const source = initialState.agentPresets.find((preset) => preset.apid === apid) ?? initialState.agentPresets[0];
+    const source = initialState.agentPresets.find((preset) => preset.apid === apid);
+    if (!source) throw new Error("系统 Agent 默认配置不存在");
     agentPresetStore = agentPresetStore.map((preset) => (preset.apid === apid ? structuredClone(source) : preset));
     syncConsoleAgents();
-    return delay(structuredClone(source));
+    return delay({
+      apid: source.apid ?? String(source.id),
+      name: source.name,
+      description: source.description,
+      prompt: source.prompt,
+      intelevel: source.intelevel ?? source.level,
+      tools: source.tools ?? [],
+    });
   },
 
   listSystemAgentDefinitions: () => delay(structuredClone(systemAgents)),
-
-  updateAgentConfig: async (input: AgentConfig) => {
-    consoleStore = {
-      ...consoleStore,
-      agents: consoleStore.agents.map((agent) => (String(agent.id) === String(input.id) ? input : agent)),
-    };
-    agentPresetStore = agentPresetStore.map((preset) => (String(preset.apid ?? preset.id) === String(input.apid ?? input.id) ? { ...preset, enabled: input.enabled, description: input.description, updated_at: input.updatedAt } : preset));
-    consoleStore.agentPresets = agentPresetStore;
-    return delay(input);
-  },
 
   runAgentTest: async ({ agentId, content, sessionId }) => {
     const agent = consoleStore.agents.find((item) => item.id === agentId) ?? consoleStore.agents[0];
@@ -353,7 +348,8 @@ function buildHomeDashboard(): HomeDashboard {
 }
 
 function buildConversationDetail(id: string): ConversationDetail {
-  const conversation = crmConversationStore.find((item) => item.contact_ali_id === id) ?? crmConversationStore[0];
+  const conversation = crmConversationStore.find((item) => conversationMatchesId(item, id));
+  if (!conversation) throw new Error("会话不存在");
   return toConversationDetail(conversation, userStore, selfInfoStore, businessCardStore);
 }
 
@@ -372,27 +368,41 @@ function executeSendChatMessage(input: SendChatMessageInput) {
   taskSnapshotStore = [task, ...taskSnapshotStore];
 
   if (input.action === "send") {
-    const index = crmConversationStore.findIndex((item) => item.contact_ali_id === input.contact || item.contact_ali_id === input.conversationId);
-    const target = crmConversationStore[index] ?? crmConversationStore[0];
+    const index = crmConversationStore.findIndex((item) => conversationMatchesId(item, String(input.conversationId ?? input.contact)) || conversationMatchesAccount(item, input.contact));
+    if (index < 0) throw new Error("会话不存在");
+    const target = crmConversationStore[index];
     const externalMid = `msg-${Date.now()}`;
-    const message: CrmMessage = {
-      table_name: "message_mock",
-      cid: target.contact_ali_id,
-      mid: externalMid,
-      external_mid: externalMid,
-      sid: target.sid,
-      sender_id: selfInfoStore?.ali_id ?? null,
-      read: true,
-      created_at: nowText(),
-      user_content_type: 1,
-      type: "text",
-      content_label: input.text,
-      content: input.text,
-      is_system: false,
-      is_auto_reply: false,
-    };
-    const next = { ...target, messages: [...target.messages, message], last_created_at: message.created_at, last_content_label: input.text };
-    crmConversationStore[index >= 0 ? index : 0] = next;
+    const nextUpdatedAt = nowText();
+
+    if (isDbConversation(target)) {
+      const message: DbMessage = {
+        external_mid: externalMid,
+        sid: target.sid,
+        sender: selfInfoStore?.aid ?? 0,
+        read: true,
+        content: input.text,
+        type: "text",
+      };
+      crmConversationStore[index] = { ...target, messages: [...target.messages, message], display_updated_at: nextUpdatedAt, display_latest_content: input.text };
+    } else {
+      const message: CrmMessage = {
+        table_name: "message_mock",
+        cid: target.contact_ali_id,
+        mid: externalMid,
+        external_mid: externalMid,
+        sid: target.sid,
+        sender_id: selfInfoStore?.ali_id ?? null,
+        read: true,
+        created_at: nextUpdatedAt,
+        user_content_type: 1,
+        type: "text",
+        content_label: input.text,
+        content: input.text,
+        is_system: false,
+        is_auto_reply: false,
+      };
+      crmConversationStore[index] = { ...target, messages: [...target.messages, message], last_created_at: message.created_at, last_content_label: input.text };
+    }
   }
 
   statusStore = buildStatusSnapshot();
@@ -401,6 +411,21 @@ function executeSendChatMessage(input: SendChatMessageInput) {
 
 function resolveUser(identifier: string) {
   return userStore.find((user) => [user.ali_id, user.login_id, user.encrypt_account_id, user.ali_member_id].includes(identifier));
+}
+
+function conversationMatchesId(conversation: ConversationRecord, id: string) {
+  if (isDbConversation(conversation)) return String(conversation.sid) === id;
+  return conversation.contact_ali_id === id || String(conversation.sid) === id;
+}
+
+function conversationMatchesAccount(conversation: ConversationRecord, account: string) {
+  if (!account) return false;
+  if (isDbConversation(conversation)) return conversation.accounts?.some((item) => item.account === account || String(item.aid) === account) ?? false;
+  return conversation.contact_ali_id === account;
+}
+
+function isDbConversation(conversation: ConversationRecord): conversation is DbConversation {
+  return "participants" in conversation && Array.isArray(conversation.participants);
 }
 
 function getAgentSession(id: string) {

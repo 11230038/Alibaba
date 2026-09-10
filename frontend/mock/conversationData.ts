@@ -1,7 +1,7 @@
 import { toConversationDetail, replySuggestionsToAssistantSuggestions } from "@/domain/chat/chatModel";
 import { businessCards } from "@/mock/cardData";
 import { mockSelfInfo } from "@/mock/selfData";
-import type { CrmConversation, ReplySuggestions, UserInfo } from "@/types/chat";
+import type { DbAccount, DbConversation, DbCustomer, ReplySuggestions, UserInfo } from "@/types/chat";
 
 export const userInfos: UserInfo[] = [
   {
@@ -93,125 +93,69 @@ export const userInfos: UserInfo[] = [
   },
 ];
 
-export const crmConversations: CrmConversation[] = [
+const customers: DbCustomer[] = [
+  { cid: 1001, name: "Sofia Martinez", region: "Spain", extra: { company: "Luma Retail Group" } },
+  { cid: 1002, name: "Ahmed Khan", region: "UAE", extra: { company: "Gulf Fresh Logistics" } },
+  { cid: 1003, name: "Maya Brown", region: "Canada", extra: { company: "North Harbor Supplies" } },
+  { cid: 9001, name: "Demo Seller", region: "China", extra: { company: "Hangzhou Smart Export Co., Ltd." } },
+];
+
+const accounts: DbAccount[] = [
+  { aid: 101, cid: 1001, pid: "alibaba", account: "buyer-ali-001", nickname: "Sofia Martinez", avatar: null, sids: [42], extra: { email: "sofia@luma.example", phone: "+34 600 123 456" } },
+  { aid: 102, cid: 1002, pid: "alibaba", account: "buyer-ali-002", nickname: "Ahmed Khan", avatar: null, sids: [43], extra: { email: "ahmed@gfresh.example", phone: "+971 55 000 1188" } },
+  { aid: 103, cid: 1003, pid: "alibaba", account: "buyer-ali-003", nickname: "Maya Brown", avatar: null, sids: [44], extra: { email: "maya@northharbor.example", phone: "+1 604 000 9281" } },
+  { aid: 9001, cid: 9001, pid: "alibaba", account: mockSelfInfo.ali_id, nickname: "Demo Seller", avatar: mockSelfInfo.avatar_url, sids: [42, 43, 44], extra: null },
+];
+
+function conversationAccounts(aid: number) {
+  return accounts.filter((account) => account.aid === aid || account.aid === mockSelfInfo.aid);
+}
+
+function conversationCustomers(aid: number) {
+  const cids = new Set(conversationAccounts(aid).map((account) => account.cid));
+  return customers.filter((customer) => cids.has(customer.cid));
+}
+
+export const crmConversations: DbConversation[] = [
   {
-    contact_ali_id: "buyer-ali-001",
-    last_created_at: "2026-09-07 10:21",
-    last_content_label: "",
+    sid: 42,
+    name: "Luma Retail Group",
+    participants: [101, 9001],
+    accounts: conversationAccounts(101),
+    customers: conversationCustomers(101),
+    display_updated_at: "2026-09-07 10:21",
+    display_latest_content: "客户浏览了 3 个太阳能灯 SKU，并下载认证附件。",
     messages: [
-      {
-        table_name: "message_202609",
-        cid: "buyer-ali-001",
-        mid: "msg-001",
-        sender_id: "buyer-ali-001",
-        created_at: "2026-09-07 10:18",
-        user_content_type: 1,
-        content_label: "Hi, could you confirm the MOQ and lead time for the solar lights?",
-        content: "Hi, could you confirm the MOQ and lead time for the solar lights?",
-        is_system: false,
-        is_auto_reply: false,
-      },
-      {
-        table_name: "message_202609",
-        cid: "buyer-ali-001",
-        mid: "msg-002",
-        sender_id: null,
-        created_at: "2026-09-07 10:19",
-        user_content_type: 9,
-        content_label: "系统推荐卡片",
-        content: "系统推荐卡片",
-        is_system: false,
-        is_auto_reply: false,
-        card_id: "inq-20260907-001",
-      },
-      {
-        table_name: "message_202609",
-        cid: "buyer-ali-001",
-        mid: "msg-003",
-        sender_id: null,
-        created_at: "2026-09-07 10:20",
-        user_content_type: 0,
-        content_label: "客户浏览了 3 个太阳能灯 SKU，并下载认证附件。",
-        content: "客户浏览了 3 个太阳能灯 SKU，并下载认证附件。",
-        is_system: true,
-        is_auto_reply: false,
-      },
+      { external_mid: "msg-001", sid: 42, sender: 101, read: false, content: "Hi, could you confirm the MOQ and lead time for the solar lights?", type: "text" },
+      { external_mid: "msg-002", sid: 42, sender: 9001, read: true, content: { card_id: "inq-20260907-001", label: "系统推荐卡片" }, type: "card" },
+      { external_mid: "msg-003", sid: 42, sender: 9001, read: true, content: "客户浏览了 3 个太阳能灯 SKU，并下载认证附件。", type: "system" },
     ],
   },
   {
-    contact_ali_id: "buyer-ali-002",
-    last_created_at: "2026-09-07 09:48",
-    last_content_label: "",
+    sid: 43,
+    name: "Gulf Fresh Logistics",
+    participants: [102, 9001],
+    accounts: conversationAccounts(102),
+    customers: conversationCustomers(102),
+    display_updated_at: "2026-09-07 09:48",
+    display_latest_content: "系统推荐卡片",
     messages: [
-      {
-        table_name: "message_202609",
-        cid: "buyer-ali-002",
-        mid: "msg-004",
-        sender_id: "buyer-ali-002",
-        created_at: "2026-09-07 09:44",
-        user_content_type: 1,
-        content_label: "Could you share the warranty extension options for a tiered order?",
-        content: "Could you share the warranty extension options for a tiered order?",
-        is_system: false,
-        is_auto_reply: false,
-      },
-      {
-        table_name: "message_202609",
-        cid: "buyer-ali-002",
-        mid: "msg-005",
-        sender_id: mockSelfInfo.ali_id,
-        created_at: "2026-09-07 09:46",
-        user_content_type: 1,
-        content_label: "Thanks Ahmed. I will check the warranty extension policy and share a tiered quote today.",
-        content: "Thanks Ahmed. I will check the warranty extension policy and share a tiered quote today.",
-        is_system: false,
-        is_auto_reply: false,
-      },
-      {
-        table_name: "message_202609",
-        cid: "buyer-ali-002",
-        mid: "msg-006",
-        sender_id: null,
-        created_at: "2026-09-07 09:48",
-        user_content_type: 9,
-        content_label: "系统推荐卡片",
-        content: "系统推荐卡片",
-        is_system: false,
-        is_auto_reply: false,
-        card_id: "card-product-001",
-      },
+      { external_mid: "msg-004", sid: 43, sender: 102, read: false, content: "Could you share the warranty extension options for a tiered order?", type: "text" },
+      { external_mid: "msg-005", sid: 43, sender: 9001, read: true, content: "Thanks Ahmed. I will check the warranty extension policy and share a tiered quote today.", type: "text" },
+      { external_mid: "msg-006", sid: 43, sender: 9001, read: true, content: { card_id: "card-product-001", label: "系统推荐卡片" }, type: "card" },
     ],
   },
   {
-    contact_ali_id: "buyer-ali-003",
-    last_created_at: "2026-09-06 22:11",
-    last_content_label: "",
+    sid: 44,
+    name: "North Harbor Supplies",
+    participants: [103, 9001],
+    accounts: conversationAccounts(103),
+    customers: conversationCustomers(103),
+    display_updated_at: "2026-09-06 22:11",
+    display_latest_content: "系统推荐卡片",
     messages: [
-      {
-        table_name: "message_202609",
-        cid: "buyer-ali-003",
-        mid: "msg-007",
-        sender_id: "buyer-ali-003",
-        created_at: "2026-09-06 22:10",
-        user_content_type: 1,
-        content_label: "Can you send the latest catalog and sample terms?",
-        content: "Can you send the latest catalog and sample terms?",
-        is_system: false,
-        is_auto_reply: false,
-      },
-      {
-        table_name: "message_202609",
-        cid: "buyer-ali-003",
-        mid: "msg-008",
-        sender_id: null,
-        created_at: "2026-09-06 22:12",
-        user_content_type: 9,
-        content_label: "系统推荐卡片",
-        content: "系统推荐卡片",
-        is_system: false,
-        is_auto_reply: false,
-        card_id: "card-generic-001",
-      },
+      { external_mid: "msg-007", sid: 44, sender: 103, read: false, content: "Can you send the latest catalog and sample terms?", type: "text" },
+      { external_mid: "msg-008", sid: 44, sender: 9001, read: true, content: { card_id: "card-generic-001", label: "系统推荐卡片" }, type: "card" },
     ],
   },
 ];

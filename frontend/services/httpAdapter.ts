@@ -1,4 +1,4 @@
-import type { AgentPreset, DocumentLlmConfig } from "@/types/agent";
+import type { DbAgentPreset, DocumentLlmConfig } from "@/types/agent";
 import type { ApiResponse } from "@/types/common";
 import type { ReplySuggestionInput } from "@/types/chat";
 import type { OperationsBackend } from "./interfaces";
@@ -62,11 +62,10 @@ export const httpBackend: OperationsBackend = {
 
   getAgentConsole: () => request("/api/agent/console"),
   saveLlmConfig: (input: DocumentLlmConfig) => request("/api/agent/llm-config", { method: "PUT", body: JSON.stringify(input) }),
-  saveAgentPreset: (input: AgentPreset) => request("/api/agent/presets", { method: "POST", body: JSON.stringify(input) }),
+  saveAgentPreset: (input: DbAgentPreset) => request("/api/agent/presets", { method: "POST", body: JSON.stringify(input) }),
   deleteAgentPreset: (id) => request(`/api/agent/presets/${encodeURIComponent(id)}`, { method: "DELETE" }),
   restoreSystemAgentDefault: (apid) => request(`/api/agent/system/${encodeURIComponent(apid)}/restore`, { method: "POST" }),
   listSystemAgentDefinitions: () => request("/api/agent/system"),
-  updateAgentConfig: (input) => request(`/api/agent/configs/${encodeURIComponent(String(input.apid ?? input.id))}`, { method: "PUT", body: JSON.stringify(input) }),
   runAgentTest: (input) => request("/api/agent/test", { method: "POST", body: JSON.stringify(input) }),
   listAgentTestHistory: () => request("/api/agent/test-history"),
   undoAgentTestSession: (id) => request(`/api/agent/test-history/${encodeURIComponent(id)}/undo`, { method: "POST" }),
