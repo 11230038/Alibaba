@@ -30,8 +30,9 @@ yarn-error.log*
 /.gemini/
 /.codebuddy/
 
-.tmp-mattpocock-skills
+/.tmp-mattpocock-skills/
+/.vscode/
 
 .product
-
+/frontend/.claude/
 CLAUDE.md
