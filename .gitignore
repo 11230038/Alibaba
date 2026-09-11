@@ -10,6 +10,8 @@
 /.claude/
 # React-Example artifacts
 node_modules
+.next/
+tsconfig.tsbuildinfo
 .pnp
 .pnp.js
 coverage
