@@ -3,7 +3,7 @@
 import { App } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { backend } from "@/services/client";
-import type { AssistantSuggestion, ChatMessage, ConversationDetail } from "@/types/chat";
+import type { AssistantSuggestion, ChatMessage, ConversationDetail } from "@/types/chatCanonical";
 import { useConversationSummaries } from "./useConversationSummaries";
 
 export function useChatWorkbench() {
@@ -98,7 +98,6 @@ export function useChatWorkbench() {
       const result = await backend.sendMessage({
         conversationId: activeConversation.id,
         content: draft.trim(),
-        contact: activeConversation.customer.aliId,
         action: "send",
       });
       const execution = result.execution;

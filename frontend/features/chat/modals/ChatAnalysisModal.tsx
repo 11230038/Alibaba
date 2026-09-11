@@ -2,7 +2,7 @@
 
 import { Listy, Modal, Progress, Space, Tag, Typography } from "antd";
 import { stageLabel } from "@/domain/chat/chatModel";
-import type { ConversationAnalysis } from "@/types/chat";
+import type { ConversationAnalysis } from "@/types/chatCanonical";
 
 export function ChatAnalysisModal({ open, analysis, focus = "intent", onClose }: { open: boolean; analysis?: ConversationAnalysis; focus?: "intent" | "stage"; onClose: () => void }) {
   const title = focus === "intent" ? "客户意图分析" : "客户所处阶段分析";

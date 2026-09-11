@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Listy, Modal, Space, Tag, Typography } from "antd";
-import type { AssistantSuggestion } from "@/types/chat";
+import type { AssistantSuggestion } from "@/types/chatCanonical";
 
 export function AssistantSuggestionModal({ open, suggestions, onClose, onInsert }: { open: boolean; suggestions: AssistantSuggestion[]; onClose: () => void; onInsert: (content: string) => void }) {
   return (

@@ -2,7 +2,7 @@
 
 import { App } from "antd";
 import { createContext, createElement, useContext, useEffect, useState, type ReactNode } from "react";
-import { agentConfigToPreset, agentPresetToConfig, agentPresetToDbPreset, createRegularAgentPreset, dbPresetToAgentPreset, documentToLlmLevelConfig, documentToUiLlmConfig } from "@/domain/agent/agentModel";
+import { agentConfigToPreset, agentPresetToConfig, agentPresetToDbPreset, createRegularAgentPreset, dbPresetToAgentPreset, documentToLlmLevelConfig, documentToUiLlmConfig, upsertLlmLevel } from "@/domain/agent/agentModel";
 import { backend } from "@/services/client";
 import type { AgentConfig, AgentConsoleState, DbAgentPreset, DocumentLlmConfig, LlmConfig, LlmLevelConfig } from "@/types/agent";
 import type { AgentEditValues } from "../AgentEditModal";
@@ -50,11 +50,7 @@ function useAgentWorkbenchController() {
     setState((currentState) => {
       if (!currentState) return currentState;
       const savedLevel = documentToLlmLevelConfig(saved);
-      const existingLevels = currentState.llmLevels ?? [];
-      const hasLevel = existingLevels.some((item) => item.level === savedLevel.level);
-      const nextLevels = hasLevel
-        ? existingLevels.map((item) => item.level === savedLevel.level ? savedLevel : item)
-        : [...existingLevels, savedLevel].sort((a, b) => a.level - b.level);
+      const nextLevels = upsertLlmLevel(currentState.llmLevels ?? [], savedLevel);
       return { ...currentState, documentLlmConfig: saved, llmConfig, llmLevels: nextLevels };
     });
     message.success("LLM 参数已保存");
@@ -77,19 +73,17 @@ function useAgentWorkbenchController() {
   async function toggleAgent(agent: AgentConfig, enabled: boolean) {
     const updatedAt = nowText();
     const updated: AgentConfig = { ...agent, enabled, updatedAt };
-    if (agent.prompt && agent.level !== undefined) {
-      await backend.saveAgentPreset(agentPresetToDbPreset({
-        id: agent.id,
-        name: agent.name,
-        category: agent.category,
-        enabled,
-        description: agent.description,
-        prompt: agent.prompt,
-        level: agent.level,
-        tools: agent.capabilities,
-        updated_at: updatedAt,
-        apid: agent.apid,
-      }));
+    const prompt = agent.prompt;
+    const level = agent.level;
+    if (prompt && level !== undefined) {
+      const preset = agentConfigToPreset(updated, {
+        name: updated.name,
+        description: updated.description,
+        prompt,
+        level,
+        capabilities: updated.capabilities,
+      }, updatedAt);
+      await backend.saveAgentPreset(agentPresetToDbPreset(preset));
     }
     setState((current) => current ? { ...current, agents: current.agents.map((item) => item.id === updated.id ? updated : item) } : current);
   }

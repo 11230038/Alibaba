@@ -1,14 +1,17 @@
+import { adaptConversationSummary } from "@/services/chatAdapter";
 import type { HomeDashboard } from "@/types/home";
 import { businessCards } from "@/mock/cardData";
-import { crmConversations, userInfos } from "@/mock/conversationData";
+import { conversationAggregates } from "@/mock/conversationData";
 import { mockSelfInfo } from "@/mock/selfData";
 import { tasks } from "@/mock/statusData";
+
+const conversationSummaries = conversationAggregates.map(adaptConversationSummary);
 
 export const homeDashboard: HomeDashboard = {
   info: mockSelfInfo,
   metrics: [
-    { key: "conversations", title: "活跃会话", value: crmConversations.length, delta: { value: 12.4, direction: "up", label: "较昨日" } },
-    { key: "unread", title: "待回复客户", value: crmConversations.reduce((count, item) => count + item.messages.filter((message) => message.read === false && message.sender !== mockSelfInfo.aid && message.type !== "system").length, 0), delta: { value: 6.1, direction: "down", label: "较昨日" } },
+    { key: "conversations", title: "活跃会话", value: conversationAggregates.length, delta: { value: 12.4, direction: "up", label: "较昨日" } },
+    { key: "unread", title: "待回复客户", value: conversationSummaries.reduce((count, item) => count + item.unreadCount, 0), delta: { value: 6.1, direction: "down", label: "较昨日" } },
     { key: "cards", title: "可用卡片", value: businessCards.length, delta: { value: 4, direction: "up", label: "本周新增" } },
     { key: "agent", title: "Agent 可用率", value: 96.8, suffix: "%", delta: { value: 1.2, direction: "up", label: "近 24h" } },
   ],
@@ -21,12 +24,12 @@ export const homeDashboard: HomeDashboard = {
     { label: "周六", value: 46 },
     { label: "周日", value: 61 },
   ],
-  customerSummaries: userInfos.slice(0, 3).map((user) => ({
-    key: user.ali_id,
-    name: [user.first_name, user.last_name].filter(Boolean).join(" "),
-    stage: user.potential_score >= 80 ? "高意向" : "新线索",
-    nextAction: user.valid_inquiry_count >= 5 ? "发送阶梯报价" : "补充认证资料",
-    priority: user.potential_score >= 80 ? "high" : "medium",
+  customerSummaries: conversationSummaries.slice(0, 3).map((conversation) => ({
+    key: conversation.id,
+    name: conversation.customer.name,
+    stage: conversation.customer.tags[0] ?? "新线索",
+    nextAction: conversation.latestMessage,
+    priority: conversation.priority,
   })),
   capabilities: [
     { key: "translation", agent: "翻译 Agent", ability: "消息翻译 / 贸易术语", coverage: 92, status: "healthy" },

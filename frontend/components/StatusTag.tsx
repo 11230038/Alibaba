@@ -1,7 +1,7 @@
 import { Badge, Tag } from "antd";
 import type { AgentConfig } from "@/types/agent";
 import type { BusinessCardStatus } from "@/types/cards";
-import type { ConversationStatus } from "@/types/chat";
+import type { ConversationStatus } from "@/types/chatCanonical";
 import type { HealthStatus, TaskStatus } from "@/types/status";
 
 type StatusValue = ConversationStatus | BusinessCardStatus | HealthStatus | TaskStatus | AgentConfig["category"] | "enabled" | "disabled" | "high" | "medium" | "low";

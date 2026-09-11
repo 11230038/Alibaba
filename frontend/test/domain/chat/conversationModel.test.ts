@@ -1,170 +1,65 @@
 import { describe, expect, it } from "vitest";
-import { toConversationDetail, toConversationSummary } from "@/domain/chat/chatModel";
-import type { BusinessCard } from "@/types/cards";
-import type { CrmConversation, DbConversation, UserInfo } from "@/types/chat";
-import type { SelfInfo } from "@/types/home";
+import { buildConversationExport, conversationToTuples, groupConversations, sortConversations, stageLabel, statusLabel } from "@/domain/chat/chatModel";
+import type { ChatMessage, Conversation, ConversationDetail } from "@/types/chatCanonical";
 
-const selfInfo: SelfInfo = {
-  ali_id: "seller-1",
-  login_id: "seller-login",
-  encrypt_account_id: "seller-enc",
-  first_name: "Seller",
-  last_name: "Demo",
-  country: "China",
-  company_name: "Seller Co.",
-  avatar_url: "",
-  account_status: "active",
+const summary = (id: string, updatedAt: string, status: Conversation["status"] = "following"): Conversation => ({
+  id,
+  customer: {
+    id: id,
+    aliId: `buyer-${id}`,
+    name: `Buyer ${id}`,
+    company: "Buyer Co.",
+    country: "US",
+    email: "buyer@example.com",
+    phone: "+1 000",
+    stage: "interested",
+    tags: ["高质量买家"],
+    availability: "当前可联系",
+    behavior: [],
+  },
+  latestMessage: "最新消息",
+  updatedAt,
+  unreadCount: status === "unread" ? 1 : 0,
+  status,
+  priority: "high",
+});
+
+const messages: ChatMessage[] = [
+  { id: "message-1", role: "buyer", content: "需要报价", createdAt: "2026-09-08 10:10", read: false, sid: 42, externalMid: "message-1", senderAid: 101, type: "text", rawContent: { text: "需要报价" } },
+  { id: "message-2", role: "seller", content: "已收到", createdAt: "2026-09-08 10:11", read: true, sid: 42, externalMid: "message-2", senderAid: 9001, type: "text", rawContent: "已收到" },
+];
+
+const detail: ConversationDetail = {
+  ...summary("42", "2026-09-08 10:11", "unread"),
+  messages,
+  analysis: {
+    intent: "需要报价",
+    stage: "interested",
+    score: 85,
+    risks: ["交期"],
+    nextActions: ["发送报价"],
+    summary: "客户处于高意向阶段。",
+  },
 };
 
-const user: UserInfo = {
-  ali_id: "buyer-1",
-  ali_member_id: "member-1",
-  login_id: "buyer-login",
-  encrypt_account_id: "buyer-enc",
-  first_name: "Buyer",
-  last_name: "Demo",
-  country_code: "US",
-  company_name: "Buyer Co.",
-  register_date: 1704067200,
-  email: "buyer@example.com",
-  mobile_number: "+1 000",
-  phone_number: "+1 111",
-  product_view_count: 8,
-  valid_inquiry_count: 2,
-  replied_inquiry_count: 1,
-  valid_rfq_count: 0,
-  login_days: 12,
-  spam_inquiry_count: 0,
-  blacklisted_count: 0,
-  high_quality_level_tag: "高质量买家",
-  growth_level: "成长中",
-  preferred_industries: ["Lighting"],
-  available: true,
-  joining_years: 2,
-  potential_score: 85,
-  recent_contact: true,
-  email_validated: true,
-};
-
-const card: BusinessCard = {
-  id: "card-1",
-  title: "推荐卡片",
-  type: "generic",
-  status: "published",
-  summary: "卡片摘要",
-  owner: "业务卡片",
-  updatedAt: "2026-09-08 10:00",
-  tags: ["卡片"],
-  coverTone: "#fff",
-  details: [],
-  recommendedScenario: "推荐场景",
-};
-
-const conversation: CrmConversation = {
-  contact_ali_id: "buyer-1",
-  last_created_at: "2026-09-08 10:12",
-  last_content_label: "Please send sample details.",
-  messages: [
-    {
-      table_name: "message",
-      cid: "buyer-1",
-      mid: "msg-1",
-      sender_id: "buyer-1",
-      created_at: "2026-09-08 10:10",
-      user_content_type: 1,
-      content_label: "Please send sample details.",
-      content: "Please send sample details.",
-      is_system: false,
-      is_auto_reply: false,
-    },
-    {
-      table_name: "message",
-      cid: "buyer-1",
-      mid: "msg-2",
-      sender_id: "seller-1",
-      created_at: "2026-09-08 10:11",
-      user_content_type: 1,
-      content_label: "I will send it today.",
-      content: "I will send it today.",
-      is_system: false,
-      is_auto_reply: false,
-    },
-    {
-      table_name: "message",
-      cid: "buyer-1",
-      mid: "msg-card",
-      sender_id: null,
-      created_at: "2026-09-08 10:12",
-      user_content_type: 9,
-      content_label: "系统推荐卡片",
-      content: "系统推荐卡片",
-      is_system: false,
-      is_auto_reply: false,
-      card_id: "card-1",
-    },
-  ],
-};
-
-describe("conversation model adapters", () => {
-  it("converts CRM conversation to UI summary", () => {
-    const summary = toConversationSummary(conversation, [user], selfInfo);
-
-    expect(summary.id).toBe("buyer-1");
-    expect(summary.customer.name).toBe("Buyer Demo");
-    expect(summary.status).toBe("unread");
-    expect(summary.priority).toBe("high");
+describe("conversation domain model", () => {
+  it("sorts and groups canonical conversations", () => {
+    const conversations = [summary("old", "2026-09-06 10:00"), summary("new", "2026-09-08 10:00", "unread")];
+    expect(sortConversations(conversations).map((item) => item.id)).toEqual(["new", "old"]);
+    expect(groupConversations(conversations, "status").map((group) => group.label)).toEqual(["跟进中", "未读待回"]);
+    expect(statusLabel("closed")).toBe("已关闭");
   });
 
-  it("converts CRM messages and card references to detail", () => {
-    const detail = toConversationDetail(conversation, [user], selfInfo, [card]);
-
-    expect(detail.messages.map((message) => message.role)).toEqual(["buyer", "seller", "card"]);
-    expect(detail.messages[2].card?.id).toBe("card-1");
-    expect(detail.analysis.stage).toBe("interested");
+  it("builds canonical tuples without transport fields", () => {
+    expect(conversationToTuples(detail)).toEqual([
+      ["2026-09-08 10:10", "买家", "需要报价"],
+      ["2026-09-08 10:11", "我", "已收到"],
+    ]);
   });
 
-  it("maps database session and message fields without leaking the legacy typo", () => {
-    const detail = toConversationDetail({
-      sid: 42,
-      name: "Buyer session",
-      participants: [101, 9001],
-      messages: [
-        { external_mid: "db-msg-1", sid: 42, sender: 101, read: false, content: { text: "需要报价" }, type: "text" },
-        { external_mid: "db-msg-2", sid: 42, sender: 9001, read: true, content: "已收到", type: "text" },
-      ],
-    }, [], { ...selfInfo, aid: 9001 });
-
-    expect(detail.id).toBe("42");
-    expect(detail.unreadCount).toBe(1);
-    expect(detail.messages[0]).toMatchObject({ id: "db-msg-1", sid: 42, externalMid: "db-msg-1", senderAid: 101, read: false, content: "需要报价", rawContent: { text: "需要报价" } });
-    expect(detail.messages[1].id).toBe("db-msg-2");
-  });
-
-  it("resolves database customers through session participants and accounts", () => {
-    const dbConversation: DbConversation = {
-      sid: 77,
-      name: "DB session",
-      participants: [501, 9001],
-      accounts: [
-        { aid: 501, cid: 301, pid: "alibaba", account: "buyer-account", nickname: "Buyer Nick", avatar: null, sids: [77], extra: { email: "db@example.com", phone: "+86 123" } },
-        { aid: 9001, cid: 901, pid: "alibaba", account: "seller-account", nickname: "Seller", avatar: null, sids: [77], extra: null },
-      ],
-      customers: [
-        { cid: 301, name: "DB Customer", region: "Germany" },
-        { cid: 901, name: "Seller Customer", region: "China" },
-      ],
-      display_updated_at: "2026-09-08 11:00",
-      display_latest_content: "最新聚合消息",
-      messages: [
-        { external_mid: "db-rel-1", sid: 77, sender: 501, read: false, content: "Hello", type: "text" },
-        { external_mid: "db-rel-2", sid: 77, sender: 9001, read: true, content: "Hi", type: "text" },
-      ],
-    };
-
-    const detail = toConversationDetail(dbConversation, [], { ...selfInfo, aid: 9001 });
-    expect(detail.id).toBe("77");
-    expect(detail.customer).toMatchObject({ id: "301", aliId: "buyer-account", name: "DB Customer", country: "Germany", email: "db@example.com", phone: "+86 123" });
-    expect(detail.latestMessage).toBe("最新聚合消息");
-    expect(detail.messages.map((message) => message.role)).toEqual(["buyer", "seller"]);
+  it("exports canonical details", () => {
+    expect(buildConversationExport([detail]).content).toContain("客户：Buyer 42");
+    expect(buildConversationExport([detail]).content).toContain("[2026-09-08 10:10] buyer: 需要报价");
+    expect(stageLabel("interested")).toBe("高意向");
   });
 });

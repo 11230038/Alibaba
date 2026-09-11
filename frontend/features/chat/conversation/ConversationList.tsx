@@ -3,7 +3,7 @@
 import { Avatar, Badge, Checkbox, Listy, Radio, Space, Typography } from "antd";
 import { conversationAvatarUrl } from "@/domain/chat/avatarModel";
 import { groupConversations, sortConversations } from "@/domain/chat/chatModel";
-import type { Conversation } from "@/types/chat";
+import type { Conversation } from "@/types/chatCanonical";
 import { StatusTag } from "@/components/StatusTag";
 
 export function ConversationList({

@@ -1,6 +1,7 @@
 import type { DbAgentPreset, DocumentLlmConfig } from "@/types/agent";
 import type { ApiResponse } from "@/types/common";
-import type { ReplySuggestionInput } from "@/types/chat";
+import { adaptConversationDetail, adaptConversationSummary, adaptSendMessageResult } from "@/services/chatAdapter";
+import type { ConversationAggregateDto, ConversationSendResultDto } from "@/types/chatTransport";
 import type { OperationsBackend } from "./interfaces";
 
 function isApiResponse<T>(value: unknown): value is ApiResponse<T> {
@@ -32,22 +33,25 @@ export const httpBackend: OperationsBackend = {
   resetCache: () => request("/api/cache/reset", { method: "POST" }),
   getHomeDashboard: () => request("/api/dashboard"),
 
-  refreshChatData: (wait = false) => request(`/api/chat/refresh?wait=${String(wait)}`, { method: "POST" }),
-  listCrmConversations: (selfAliId) => request(`/api/chat/conversations?self_ali_id=${encodeURIComponent(selfAliId)}`),
-  getUserInfo: (identifier) => request(`/api/crm/users/${encodeURIComponent(identifier)}`),
   requestTranslations: (input) => request("/api/messages/translations", { method: "POST", body: JSON.stringify(input) }),
   getTranslation: (text) => request(`/api/messages/translations/${encodeURIComponent(text)}`),
-  sendChatMessage: (input) => request("/api/chat/send-message", { method: "POST", body: JSON.stringify(input) }),
-  generateReplySuggestions: (input: ReplySuggestionInput) => request("/api/chat/reply-suggestions", { method: "POST", body: JSON.stringify(input) }),
-  analyzeConversationInput: (input) => request("/api/chat/analysis", { method: "POST", body: JSON.stringify(input) }),
 
-  listConversations: () => request("/api/conversations"),
-  getConversation: (id) => request(`/api/conversations/${encodeURIComponent(id)}`),
+  listConversations: async () => {
+    const aggregates = await request<ConversationAggregateDto[]>("/api/conversations");
+    return aggregates.map(adaptConversationSummary);
+  },
+  getConversation: async (id) => {
+    const aggregate = await request<ConversationAggregateDto>(`/api/conversations/${encodeURIComponent(id)}`);
+    return adaptConversationDetail(aggregate);
+  },
   translateMessage: (input) => request("/api/messages/translate", { method: "POST", body: JSON.stringify(input) }),
   regenerateTranslation: (input) => request("/api/messages/retranslate", { method: "POST", body: JSON.stringify(input) }),
   getAssistantSuggestions: (conversationId) => request(`/api/conversations/${encodeURIComponent(conversationId)}/suggestions`),
   analyzeConversation: (conversationId) => request(`/api/conversations/${encodeURIComponent(conversationId)}/analysis`),
-  sendMessage: (input) => request(`/api/conversations/${encodeURIComponent(input.conversationId)}/messages`, { method: "POST", body: JSON.stringify(input) }),
+  sendMessage: async (input) => {
+    const result = await request<ConversationSendResultDto>(`/api/conversations/${encodeURIComponent(input.conversationId)}/messages`, { method: "POST", body: JSON.stringify(input) });
+    return adaptSendMessageResult(result);
+  },
   exportConversations: (input) => request("/api/conversations/export", { method: "POST", body: JSON.stringify(input) }),
 
   checkUserStatus: () => request("/api/status/user"),

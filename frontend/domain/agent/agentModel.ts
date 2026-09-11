@@ -117,6 +117,7 @@ export function agentPresetToDbPreset(preset: AgentPreset): DbAgentPreset {
 }
 
 export function dbPresetToAgentPreset(input: DbAgentPreset, current?: AgentPreset, updatedAt = current?.updated_at ?? ""): AgentPreset {
+  const level = normalizeAgentLevel(input.intelevel);
   return {
     id: input.apid,
     apid: input.apid,
@@ -125,8 +126,8 @@ export function dbPresetToAgentPreset(input: DbAgentPreset, current?: AgentPrese
     enabled: current?.enabled ?? true,
     description: input.description,
     prompt: input.prompt,
-    level: normalizeAgentLevel(input.intelevel),
-    intelevel: normalizeAgentLevel(input.intelevel),
+    level,
+    intelevel: level,
     tools: normalizeAgentTools(input.tools),
     updated_at: updatedAt,
   };
@@ -216,6 +217,12 @@ export function llmLevelToDocumentConfig(config: LlmLevelConfig): DocumentLlmCon
     context: config.context,
     max_tool_rounds: normalizeToolRoundLimit(config.maxToolRounds),
   };
+}
+
+export function upsertLlmLevel(levels: LlmLevelConfig[], next: LlmLevelConfig) {
+  return levels.some((level) => level.level === next.level)
+    ? levels.map((level) => level.level === next.level ? next : level)
+    : [...levels, next].sort((a, b) => a.level - b.level);
 }
 
 export function documentToUiLlmConfig(input: DocumentLlmConfig, current: LlmConfig): LlmConfig {

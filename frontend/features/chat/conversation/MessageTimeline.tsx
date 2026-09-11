@@ -4,7 +4,7 @@ import { RobotOutlined, UserOutlined } from "@ant-design/icons";
 import { Avatar, Button, Card, Space, Typography } from "antd";
 import { BusinessCardView } from "@/components/BusinessCardView";
 import { fallbackAvatarUrl, sellerAvatarUrl, conversationAvatarUrl } from "@/domain/chat/avatarModel";
-import type { ChatMessage } from "@/types/chat";
+import type { ChatMessage } from "@/types/chatCanonical";
 import { useState } from "react";
 
 export function MessageTimeline({ messages, buyerId = "buyer", showTranslations = true, onRegenerate, onOpenCard }: { messages: ChatMessage[]; buyerId?: string; showTranslations?: boolean; onRegenerate: (message: ChatMessage) => void; onOpenCard: (cardId: string) => void }) {

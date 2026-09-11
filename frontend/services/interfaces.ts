@@ -1,25 +1,6 @@
 import type { AgentConsoleState, AgentTestInput, AgentTestResult, AgentTestSession, DbAgentPreset, DocumentLlmConfig, SystemAgentDefinition } from "@/types/agent";
-import type {
-  AgentAnalysisResult,
-  AssistantSuggestion,
-  Conversation,
-  ConversationAnalysis,
-  ConversationDetail,
-  ConversationRecord,
-  ExportConversationsInput,
-  ExportConversationsResult,
-  ReplySuggestionInput,
-  ReplySuggestions,
-  RequestTranslationsInput,
-  RequestTranslationsResult,
-  SendChatMessageInput,
-  SendChatMessageResult,
-  SendMessageInput,
-  SendMessageResult,
-  TranslateMessageInput,
-  TranslateMessageResult,
-  UserInfo,
-} from "@/types/chat";
+import type { AssistantSuggestion, Conversation, ConversationAnalysis, ConversationDetail } from "@/types/chatCanonical";
+import type { ExportConversationsInput, ExportConversationsResult, RequestTranslationsInput, RequestTranslationsResult, SendMessageInput, SendMessageResult, TranslateMessageInput, TranslateMessageResult } from "@/types/chatOperations";
 import type { HomeDashboard, SelfInfo } from "@/types/home";
 import type { CreateTestTaskInput, KeyStatus, NetworkStatus, NodeTestResult, SystemStatusSnapshot, TaskItem, TaskSnapshot } from "@/types/status";
 
@@ -28,14 +9,8 @@ export interface OperationsBackend {
   resetCache(): Promise<void>;
   getHomeDashboard(): Promise<HomeDashboard>;
 
-  refreshChatData(wait?: boolean): Promise<{ ready: boolean; self_ali_id: string; reason: string }>;
-  listCrmConversations(selfAliId: string): Promise<ConversationRecord[]>;
-  getUserInfo(identifier: string): Promise<UserInfo | null>;
   requestTranslations(input: RequestTranslationsInput): Promise<RequestTranslationsResult>;
   getTranslation(text: string): Promise<string | null>;
-  sendChatMessage(input: SendChatMessageInput): Promise<SendChatMessageResult>;
-  generateReplySuggestions(input: ReplySuggestionInput): Promise<ReplySuggestions>;
-  analyzeConversationInput(input: { task: string; conversation: Array<[string, string, string]> }): Promise<AgentAnalysisResult>;
 
   listConversations(): Promise<Conversation[]>;
   getConversation(id: string): Promise<ConversationDetail>;

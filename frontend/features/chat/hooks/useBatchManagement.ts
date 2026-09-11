@@ -3,7 +3,7 @@
 import { App } from "antd";
 import { useMemo, useState } from "react";
 import { backend } from "@/services/client";
-import type { Conversation } from "@/types/chat";
+import type { Conversation } from "@/types/chatCanonical";
 import { useConversationSummaries } from "./useConversationSummaries";
 
 export function useBatchManagement() {

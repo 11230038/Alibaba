@@ -3,7 +3,7 @@
 import { App } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { backend } from "@/services/client";
-import type { Conversation } from "@/types/chat";
+import type { Conversation } from "@/types/chatCanonical";
 
 export function useConversationSummaries() {
   const { message } = App.useApp();
@@ -13,12 +13,6 @@ export function useConversationSummaries() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const syncState = await backend.refreshChatData(false);
-      if (!syncState.ready) {
-        message.warning(syncState.reason || "聊天数据未就绪");
-        setConversations([]);
-        return;
-      }
       setConversations(await backend.listConversations());
     } catch {
       message.error("聊天数据加载失败");

@@ -2,7 +2,7 @@
 
 import { Card, Descriptions, Drawer, Space, Tag } from "antd";
 import { stageLabel } from "@/domain/chat/chatModel";
-import type { ConversationDetail } from "@/types/chat";
+import type { ConversationDetail } from "@/types/chatCanonical";
 import type { SelfInfo } from "@/types/home";
 
 export function CustomerInfo({ conversation, selfInfo, open, onClose }: { conversation?: ConversationDetail; selfInfo?: SelfInfo; open: boolean; onClose: () => void }) {
