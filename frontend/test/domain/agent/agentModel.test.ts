@@ -62,43 +62,44 @@ describe("agent model", () => {
     expect(removeLatestAgentTestTurn(session)).toBeNull();
   });
 
-  it("uses apid and intelevel as database authority", () => {
+  it("maps the domain preset to the database DTO at the service boundary", () => {
     const preset: AgentPreset = {
-      id: "ui-id",
-      apid: "agent-db-1",
+      id: "agent-domain-1",
       name: "报价 Agent",
       description: "",
       prompt: "报价",
       level: 4,
-      intelevel: 4,
       tools: ["CRM 查询", "quote_template"],
       category: "regular",
       enabled: true,
       updated_at: "2026-09-10",
     };
     expect(agentPresetToDbPreset(preset)).toEqual({
-      apid: "agent-db-1",
+      apid: "agent-domain-1",
       name: "报价 Agent",
       description: "",
       prompt: "报价",
       intelevel: 4,
       tools: ["crm_query", "quote_template"],
     });
-    expect(agentPresetToConfig(preset)).toMatchObject({ id: "agent-db-1", apid: "agent-db-1", level: 4, capabilities: ["CRM 查询", "报价模板"] });
+    expect(agentPresetToConfig(preset)).toMatchObject({ id: "agent-domain-1", apid: "agent-domain-1", level: 4, capabilities: ["CRM 查询", "报价模板"] });
     expect(() => normalizeAgentLevel(5)).toThrow();
   });
 
-  it("derives UI-only agent state from database presets", () => {
+  it("derives domain agent state from the database DTO", () => {
     const preset = dbPresetToAgentPreset({ apid: "agent-db-2", name: "DB Agent", description: "", prompt: "prompt", intelevel: 0, tools: [] });
-    expect(preset).toMatchObject({ id: "agent-db-2", category: "regular", enabled: true, level: 0, intelevel: 0 });
+    expect(preset).toMatchObject({ id: "agent-db-2", category: "regular", enabled: true, level: 0 });
+    expect(preset).not.toHaveProperty("apid");
+    expect(preset).not.toHaveProperty("intelevel");
     expect(agentPresetToDbPreset(preset)).toEqual({ apid: "agent-db-2", name: "DB Agent", description: "", prompt: "prompt", intelevel: 0, tools: [] });
   });
 
   it("matches system agent SQL seed levels", () => {
     const systemApids = new Set<string>(Object.values(SYSTEM_AGENT_APIDS));
-    const systemPresets = agentPresets.filter((preset) => systemApids.has(String(preset.apid)));
+    const systemPresets = agentPresets.filter((preset) => systemApids.has(String(preset.id)));
     expect(systemPresets).toHaveLength(4);
-    expect(systemPresets.every((preset) => preset.intelevel === 0 && preset.level === 0 && preset.tools?.length === 0)).toBe(true);
+    expect(systemPresets.every((preset) => preset.level === 0 && preset.tools?.length === 0)).toBe(true);
+    expect(systemPresets.every((preset) => !('apid' in preset) && !('intelevel' in preset))).toBe(true);
   });
 
   it("round-trips nullable max tool rounds without converting null to zero", () => {

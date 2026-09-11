@@ -10,15 +10,17 @@ type CollapsibleSessionListPanelProps = {
   children: ReactNode;
   minHeightClassName: string;
   extra?: ReactNode;
+  mobileCollapsible?: boolean;
 };
 
-export function CollapsibleSessionListPanel({ title, loading, children, minHeightClassName, extra }: CollapsibleSessionListPanelProps) {
+export function CollapsibleSessionListPanel({ title, loading, children, minHeightClassName, extra, mobileCollapsible = true }: CollapsibleSessionListPanelProps) {
   const screens = Grid.useBreakpoint();
   const [manualCollapse, setManualCollapse] = useState<{ breakpoint: boolean | undefined; value: boolean }>();
+  const isMobile = screens.xl === false;
   const collapsed = manualCollapse !== undefined && manualCollapse.breakpoint === screens.xl
     ? manualCollapse.value
-    : screens.xl === false;
-  const showToggle = screens.xl === false;
+    : mobileCollapsible && isMobile;
+  const showToggle = mobileCollapsible && isMobile;
 
   const cardTitle = (
     <div className="flex items-center justify-between gap-2">

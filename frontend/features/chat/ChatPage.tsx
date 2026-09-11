@@ -1,6 +1,7 @@
 "use client";
 
-import { SettingOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, SettingOutlined } from "@ant-design/icons";
+import { Grid } from "antd";
 import { useState } from "react";
 import { Button, Card, Col, Row, Space, Spin, Typography } from "antd";
 import { useRouter } from "next/navigation";
@@ -15,13 +16,22 @@ import { ChatAnalysisModal } from "./modals/ChatAnalysisModal";
 import { ChatComposer } from "./workspace/ChatComposer";
 
 type AnalysisFocus = "intent" | "stage";
+type MobileSessionView = "list" | "detail";
 
 export function ChatPage() {
   const router = useRouter();
+  const screens = Grid.useBreakpoint();
   const workbench = useChatWorkbench();
   const active = workbench.activeConversation;
   const [customerInfoOpen, setCustomerInfoOpen] = useState(false);
   const [analysisFocus, setAnalysisFocus] = useState<AnalysisFocus>("intent");
+  const [mobileView, setMobileView] = useState<MobileSessionView>("list");
+  const isMobile = screens.xl === false;
+
+  function handleSelectConversation(id: string) {
+    if (isMobile) setMobileView("detail");
+    void workbench.selectConversation(id);
+  }
 
   async function openAnalysis(focus: AnalysisFocus) {
     setAnalysisFocus(focus);
@@ -33,6 +43,63 @@ export function ChatPage() {
     }
   }
 
+  const sessionList = (
+    <CollapsibleSessionListPanel
+      title="会话列表"
+      loading={workbench.loading}
+      minHeightClassName="min-h-[720px]"
+      mobileCollapsible={false}
+      extra={<Button type="link" size="small" icon={<SettingOutlined />} onClick={() => router.push("/batch")}>管理会话</Button>}
+    >
+      <ConversationList
+        conversations={workbench.conversations}
+        activeId={active?.id}
+        groupMode={workbench.groupMode}
+        onGroupModeChange={workbench.setGroupMode}
+        onSelect={handleSelectConversation}
+      />
+    </CollapsibleSessionListPanel>
+  );
+  const sessionDetail = (
+    <Card
+      title={active ? `${active.customer.name} · ${active.customer.company}` : "消息时间线"}
+      extra={isMobile ? <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => setMobileView("list")}>返回列表</Button> : null}
+      className="flex min-h-[720px] w-full flex-col"
+      classNames={{ body: "flex min-h-0 flex-1 flex-col" }}
+    >
+      {workbench.detailLoading ? (
+        <div className="flex flex-1 items-center justify-center"><Spin /></div>
+      ) : active ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-6">
+          <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+            <MessageTimeline
+              messages={active.messages}
+              buyerId={active.customer.id}
+              showTranslations={workbench.translationVisible}
+              onRegenerate={(item) => workbench.translate(item, true)}
+              onOpenCard={workbench.setActiveCardId}
+            />
+          </div>
+          <div className="shrink-0">
+            <ChatComposer
+              value={workbench.draft}
+              onChange={workbench.setDraft}
+              translationVisible={workbench.translationVisible}
+              onToggleTranslation={workbench.toggleTranslation}
+              onOpenSuggestions={workbench.openSuggestions}
+              onOpenIntentAnalysis={() => void openAnalysis("intent")}
+              onOpenStageAnalysis={() => void openAnalysis("stage")}
+              loading={workbench.sending}
+              onSend={workbench.sendMessage}
+            />
+          </div>
+        </div>
+      ) : (
+        <Typography.Text type="secondary">请选择一个会话</Typography.Text>
+      )}
+    </Card>
+  );
+
   return (
     <Space orientation="vertical" size="large" className="w-full">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -43,61 +110,14 @@ export function ChatPage() {
       </div>
 
       <Row gutter={[16, 16]}>
-        <Col xs={24} xl={6}>
-          <CollapsibleSessionListPanel
-            title="会话列表"
-            loading={workbench.loading}
-            minHeightClassName="min-h-[720px]"
-            extra={<Button type="link" size="small" icon={<SettingOutlined />} onClick={() => router.push("/batch")}>管理会话</Button>}
-          >
-            <ConversationList
-              conversations={workbench.conversations}
-              activeId={active?.id}
-              groupMode={workbench.groupMode}
-              onGroupModeChange={workbench.setGroupMode}
-              onSelect={workbench.selectConversation}
-            />
-          </CollapsibleSessionListPanel>
-        </Col>
-
-        <Col xs={24} xl={18} className="flex">
-          <Card
-            title={active ? `${active.customer.name} · ${active.customer.company}` : "消息时间线"}
-            className="flex min-h-[720px] w-full flex-col"
-            classNames={{ body: "flex min-h-0 flex-1 flex-col" }}
-          >
-            {workbench.detailLoading ? (
-              <div className="flex flex-1 items-center justify-center"><Spin /></div>
-            ) : active ? (
-              <div className="flex min-h-0 flex-1 flex-col gap-6">
-                <div className="min-h-0 flex-1 overflow-y-auto pr-2">
-                  <MessageTimeline
-                    messages={active.messages}
-                    buyerId={active.customer.id}
-                    showTranslations={workbench.translationVisible}
-                    onRegenerate={(item) => workbench.translate(item, true)}
-                    onOpenCard={workbench.setActiveCardId}
-                  />
-                </div>
-                <div className="shrink-0">
-                  <ChatComposer
-                    value={workbench.draft}
-                    onChange={workbench.setDraft}
-                    translationVisible={workbench.translationVisible}
-                    onToggleTranslation={workbench.toggleTranslation}
-                    onOpenSuggestions={workbench.openSuggestions}
-                    onOpenIntentAnalysis={() => void openAnalysis("intent")}
-                    onOpenStageAnalysis={() => void openAnalysis("stage")}
-                    loading={workbench.sending}
-                    onSend={workbench.sendMessage}
-                  />
-                </div>
-              </div>
-            ) : (
-              <Typography.Text type="secondary">请选择一个会话</Typography.Text>
-            )}
-          </Card>
-        </Col>
+        {isMobile ? (
+          <Col xs={24} className="flex">{mobileView === "list" ? sessionList : sessionDetail}</Col>
+        ) : (
+          <>
+            <Col xs={24} xl={6}>{sessionList}</Col>
+            <Col xs={24} xl={18} className="flex">{sessionDetail}</Col>
+          </>
+        )}
       </Row>
 
       <AssistantSuggestionModal open={workbench.suggestionOpen} suggestions={workbench.suggestions} onClose={() => workbench.setSuggestionOpen(false)} onInsert={workbench.insertSuggestion} />

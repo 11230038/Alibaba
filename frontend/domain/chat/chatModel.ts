@@ -1,5 +1,4 @@
-import type { AssistantSuggestion, Conversation, ConversationDetail } from "@/types/chatCanonical";
-import type { ChatTuple, ReplySuggestions } from "@/types/chatOperations";
+import type { Conversation, ConversationDetail } from "@/types/chatCanonical";
 
 export type ConversationGroupMode = "time" | "status";
 
@@ -57,31 +56,6 @@ export function buildConversationExport(details: ConversationDetail[]) {
     archiveName: `conversation-export-${Date.now()}.zip`,
     content,
   };
-}
-
-export function buildReplySuggestionInput(conversation: ChatTuple[]) {
-  return JSON.stringify({ conversation }, null, 2);
-}
-
-export function buildAnalysisInput(task: string, conversation: ChatTuple[]) {
-  return JSON.stringify({ task, conversation }, null, 2);
-}
-
-export function replySuggestionsToAssistantSuggestions(suggestions: ReplySuggestions): AssistantSuggestion[] {
-  const tones: AssistantSuggestion["tone"][] = ["formal", "friendly", "urgent"];
-  return suggestions.items.map((item, index) => ({
-    id: `sug-${index + 1}`,
-    title: item.zh,
-    content: item.reply,
-    tone: tones[index] ?? "formal",
-    zh: item.zh,
-  }));
-}
-
-export function conversationToTuples(detail: ConversationDetail): ChatTuple[] {
-  return detail.messages
-    .filter((message) => message.role === "buyer" || message.role === "seller")
-    .map((message) => [message.createdAt, message.role === "seller" ? "我" : "买家", message.content]);
 }
 
 function dateGroup(value: string) {

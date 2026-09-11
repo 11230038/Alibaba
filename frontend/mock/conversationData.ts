@@ -1,7 +1,6 @@
-import { replySuggestionsToAssistantSuggestions } from "@/domain/chat/chatModel";
 import { mockSelfInfo } from "@/mock/selfData";
 import type { Account, AccountMapping, ConversationAggregateDto, Customer, Platform } from "@/types/chatTransport";
-import type { ReplySuggestions } from "@/types/chatOperations";
+import type { AssistantSuggestion } from "@/types/chatCanonical";
 
 const customers: Customer[] = [
   { cid: 1001, name: "Sofia Martinez", region: "Spain", extra: { company: "Luma Retail Group" } },
@@ -150,13 +149,26 @@ export const conversationAggregates: ConversationAggregateDto[] = [
   },
 ];
 
-export const replySuggestions: ReplySuggestions = {
-  buyer_language: "English",
-  items: [
-    { zh: "正式报价回复", reply: "Thanks for your interest. We can provide the sample cost, CE certificate, and lead time today. May I confirm your target quantity and preferred packaging?" },
-    { zh: "友好推进样品", reply: "Happy to help. I will send the CE certificate first, then prepare a sample quote with shipping options for your review." },
-    { zh: "紧急高意向跟进", reply: "We have sample stock available this week. If the certificate meets your requirement, I can reserve samples and arrange dispatch quickly." },
-  ],
-};
-
-export const assistantSuggestions = replySuggestionsToAssistantSuggestions(replySuggestions);
+export const assistantSuggestions: AssistantSuggestion[] = [
+  {
+    id: "sug-1",
+    title: "正式报价回复",
+    content: "Thanks for your interest. We can provide the sample cost, CE certificate, and lead time today. May I confirm your target quantity and preferred packaging?",
+    tone: "formal",
+    zh: "正式报价回复",
+  },
+  {
+    id: "sug-2",
+    title: "友好推进样品",
+    content: "Happy to help. I will send the CE certificate first, then prepare a sample quote with shipping options for your review.",
+    tone: "friendly",
+    zh: "友好推进样品",
+  },
+  {
+    id: "sug-3",
+    title: "紧急高意向跟进",
+    content: "We have sample stock available this week. If the certificate meets your requirement, I can reserve samples and arrange dispatch quickly.",
+    tone: "urgent",
+    zh: "紧急高意向跟进",
+  },
+];

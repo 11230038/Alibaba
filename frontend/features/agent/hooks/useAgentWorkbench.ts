@@ -92,7 +92,7 @@ function useAgentWorkbenchController() {
     if (agentMutationId) return;
     const updatedAt = nowText();
     const preset = agentConfigToPreset(agent, values, updatedAt);
-    setAgentMutationId(String(preset.apid ?? preset.id));
+    setAgentMutationId(String(preset.id));
     try {
       const saved = await backend.saveAgentPreset(agentPresetToDbPreset(preset));
       syncAgentState(saved);
@@ -105,7 +105,7 @@ function useAgentWorkbenchController() {
   async function createAgent(values: AgentEditValues) {
     if (agentMutationId) return;
     const preset = createRegularAgentPreset(values, nowText());
-    setAgentMutationId(preset.apid);
+    setAgentMutationId(String(preset.id));
     try {
       const saved = await backend.saveAgentPreset(agentPresetToDbPreset(preset));
       syncAgentState(saved);
@@ -146,17 +146,17 @@ function useAgentWorkbenchController() {
   function syncAgentState(dbPreset: DbAgentPreset) {
     setState((current) => {
       if (!current) return current;
-      const currentPreset = current.agentPresets?.find((item) => String(item.apid ?? item.id) === dbPreset.apid);
+      const currentPreset = current.agentPresets?.find((item) => String(item.id) === dbPreset.apid);
       const preset = dbPresetToAgentPreset(dbPreset, currentPreset, currentPreset?.updated_at ?? nowText());
       const updated = agentPresetToConfig(preset);
       const agentId = String(updated.id);
       const hasAgent = current.agents.some((item) => String(item.id) === agentId);
-      const hasPreset = current.agentPresets?.some((item) => String(item.apid ?? item.id) === agentId) ?? false;
+      const hasPreset = current.agentPresets?.some((item) => String(item.id) === agentId) ?? false;
       return {
         ...current,
         agents: hasAgent ? current.agents.map((item) => String(item.id) === agentId ? updated : item) : [updated, ...current.agents],
         agentPresets: current.agentPresets
-          ? (hasPreset ? current.agentPresets.map((item) => String(item.apid ?? item.id) === agentId ? preset : item) : [preset, ...current.agentPresets])
+          ? (hasPreset ? current.agentPresets.map((item) => String(item.id) === agentId ? preset : item) : [preset, ...current.agentPresets])
           : [preset],
       };
     });

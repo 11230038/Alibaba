@@ -1,15 +1,5 @@
-import type { AssistantSuggestion, ChatMessage, ConversationAnalysis, ConversationDetail } from "./chatCanonical";
+import type { ChatMessage, ConversationDetail } from "./chatCanonical";
 import type { TaskSnapshot } from "@/types/status";
-
-export interface SuggestionItem {
-  zh: string;
-  reply: string;
-}
-
-export interface ReplySuggestions {
-  buyer_language: string;
-  items: SuggestionItem[];
-}
 
 export interface TranslateMessageInput {
   conversationId: string;
@@ -60,13 +50,3 @@ export interface ExportConversationsResult {
   content: string;
   archiveName?: string;
 }
-
-export type ChatTuple = [string, string, string];
-
-export interface ChatPromptContext {
-  conversation: ChatTuple[];
-}
-
-export type ConversationAnalysisResult = ConversationAnalysis;
-
-export type AssistantSuggestions = AssistantSuggestion[];

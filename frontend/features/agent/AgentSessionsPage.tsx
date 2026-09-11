@@ -1,7 +1,7 @@
 "use client";
 
-import { CopyOutlined, DeleteOutlined, MoreOutlined, PlusOutlined, ReloadOutlined, RobotOutlined, UserOutlined } from "@ant-design/icons";
-import { Avatar, Button, Card, Col, Dropdown, Empty, Form, Listy, Modal, Row, Select, Space, Tag, Typography } from "antd";
+import { ArrowLeftOutlined, CopyOutlined, DeleteOutlined, MoreOutlined, PlusOutlined, ReloadOutlined, RobotOutlined, UserOutlined } from "@ant-design/icons";
+import { Avatar, Button, Card, Col, Dropdown, Empty, Form, Grid, Listy, Modal, Row, Select, Space, Tag, Typography } from "antd";
 import type { MenuProps } from "antd";
 import { useState } from "react";
 import { ActionConfirmModal } from "@/components/ActionConfirmModal";
@@ -15,15 +15,23 @@ import { useAgentSessionWorkbench } from "./hooks/useAgentSessionWorkbench";
 type CreateSessionValues = {
   agentId: string;
 };
+type MobileSessionView = "list" | "detail";
 
 export function AgentSessionsPage() {
+  const screens = Grid.useBreakpoint();
   const workbench = useAgentSessionWorkbench();
   const [createOpen, setCreateOpen] = useState(false);
+  const [mobileView, setMobileView] = useState<MobileSessionView>("list");
+  const isMobile = screens.xl === false;
   const [pendingDeleteSession, setPendingDeleteSession] = useState<AgentTestSession>();
   const [form] = Form.useForm<CreateSessionValues>();
   const agentNames = new Map(workbench.agents.map((agent) => [agent.id, agent.name]));
   const sessionActionBusy = Boolean(workbench.action);
 
+  function handleSelectSession(id: string) {
+    workbench.selectSession(id);
+    if (isMobile) setMobileView("detail");
+  }
   async function handleCreate(values: CreateSessionValues) {
     await workbench.createSession(values.agentId);
     form.resetFields();
@@ -36,6 +44,69 @@ export function AgentSessionsPage() {
     if (deleted) setPendingDeleteSession(undefined);
   }
 
+  const sessionList = (
+    <CollapsibleSessionListPanel title="会话列表" loading={workbench.loading} minHeightClassName="min-h-[720px]" mobileCollapsible={false}>
+      {workbench.sessions.length ? (
+        <Listy
+          items={workbench.sessions}
+          rowKey="id"
+          virtual={false}
+          itemRender={(session) => (
+            <SessionListItem
+              session={session}
+              agentName={agentNames.get(session.agentId) ?? session.agentId}
+              active={session.id === workbench.activeSessionId}
+              deleting={workbench.action?.type === "delete" && workbench.action.sessionId === session.id}
+              disabled={sessionActionBusy}
+              onClick={() => handleSelectSession(session.id)}
+              onCopy={() => workbench.copySession(session.id)}
+              onDelete={() => setPendingDeleteSession(session)}
+            />
+          )}
+        />
+      ) : (
+        <Empty description="暂无 Agent 会话" />
+      )}
+    </CollapsibleSessionListPanel>
+  );
+  const sessionDetail = (
+    <Card
+      title={workbench.activeSession ? `${agentNames.get(workbench.activeSession.agentId) ?? workbench.activeSession.agentId} · ${workbench.activeSession.title}` : "会话详情"}
+      extra={isMobile ? <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => setMobileView("list")}>返回列表</Button> : null}
+      className="flex min-h-[720px] w-full flex-col"
+      classNames={{ body: "flex min-h-0 flex-1 flex-col" }}
+    >
+      {workbench.activeSession ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-6">
+          <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+            <SessionMessages session={workbench.activeSession} />
+          </div>
+          <div className="shrink-0">
+            <MessageComposer
+              value={workbench.draft}
+              onChange={workbench.setDraft}
+              tools={[
+                { key: "new-session", label: "新建会话", disabled: workbench.busy },
+                { key: "undo-turn", label: "撤销一轮", disabled: workbench.busy || !workbench.canUndoTurn },
+                { key: "regenerate-reply", label: "重新回复", disabled: workbench.busy || !workbench.canRegenerateReply },
+              ]}
+              onToolClick={(key) => {
+                if (key === "new-session") setCreateOpen(true);
+                if (key === "undo-turn") void workbench.undoTurn();
+                if (key === "regenerate-reply") void workbench.regenerateReply();
+              }}
+              placeholder="输入要交给 Agent 处理的问题或任务..."
+              loading={workbench.action?.type === "send"}
+              onSend={workbench.sendMessage}
+            />
+          </div>
+        </div>
+      ) : (
+        <Empty description="请选择会话或新建会话" />
+      )}
+    </Card>
+  );
+
   return (
     <Space orientation="vertical" size="large" className="w-full">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -44,68 +115,14 @@ export function AgentSessionsPage() {
       </div>
 
       <Row gutter={[16, 16]}>
-        <Col xs={24} xl={6}>
-          <CollapsibleSessionListPanel title="会话列表" loading={workbench.loading} minHeightClassName="min-h-[720px]">
-            {workbench.sessions.length ? (
-              <Listy
-                items={workbench.sessions}
-                rowKey="id"
-                virtual={false}
-                itemRender={(session) => (
-                  <SessionListItem
-                    session={session}
-                    agentName={agentNames.get(session.agentId) ?? session.agentId}
-                    active={session.id === workbench.activeSessionId}
-                    deleting={workbench.action?.type === "delete" && workbench.action.sessionId === session.id}
-                    disabled={sessionActionBusy}
-                    onClick={() => workbench.selectSession(session.id)}
-                    onCopy={() => workbench.copySession(session.id)}
-                    onDelete={() => setPendingDeleteSession(session)}
-                  />
-                )}
-              />
-            ) : (
-              <Empty description="暂无 Agent 会话" />
-            )}
-          </CollapsibleSessionListPanel>
-        </Col>
-
-        <Col xs={24} xl={18} className="flex">
-          <Card
-            title={workbench.activeSession ? `${agentNames.get(workbench.activeSession.agentId) ?? workbench.activeSession.agentId} · ${workbench.activeSession.title}` : "会话详情"}
-            className="flex min-h-[720px] w-full flex-col"
-            classNames={{ body: "flex min-h-0 flex-1 flex-col" }}
-          >
-            {workbench.activeSession ? (
-              <div className="flex min-h-0 flex-1 flex-col gap-6">
-                <div className="min-h-0 flex-1 overflow-y-auto pr-2">
-                  <SessionMessages session={workbench.activeSession} />
-                </div>
-                <div className="shrink-0">
-                  <MessageComposer
-                    value={workbench.draft}
-                    onChange={workbench.setDraft}
-                    tools={[
-                      { key: "new-session", label: "新建会话", disabled: workbench.busy },
-                      { key: "undo-turn", label: "撤销一轮", disabled: workbench.busy || !workbench.canUndoTurn },
-                      { key: "regenerate-reply", label: "重新回复", disabled: workbench.busy || !workbench.canRegenerateReply },
-                    ]}
-                    onToolClick={(key) => {
-                      if (key === "new-session") setCreateOpen(true);
-                      if (key === "undo-turn") void workbench.undoTurn();
-                      if (key === "regenerate-reply") void workbench.regenerateReply();
-                    }}
-                    placeholder="输入要交给 Agent 处理的问题或任务..."
-                    loading={workbench.action?.type === "send"}
-                    onSend={workbench.sendMessage}
-                  />
-                </div>
-              </div>
-            ) : (
-              <Empty description="请选择会话或新建会话" />
-            )}
-          </Card>
-        </Col>
+        {isMobile ? (
+          <Col xs={24} className="flex">{mobileView === "list" ? sessionList : sessionDetail}</Col>
+        ) : (
+          <>
+            <Col xs={24} xl={6}>{sessionList}</Col>
+            <Col xs={24} xl={18} className="flex">{sessionDetail}</Col>
+          </>
+        )}
       </Row>
 
       <Modal

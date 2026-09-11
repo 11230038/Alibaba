@@ -97,44 +97,33 @@ export function displayAgentTools(tools: string[] = []) {
   return tools.map(agentToolToDisplayLabel);
 }
 
-export function agentPresetApid(preset: Pick<AgentPreset, "id" | "apid">) {
-  return preset.apid ?? String(preset.id);
-}
-
-export function agentPresetLevel(preset: Pick<AgentPreset, "level" | "intelevel">) {
-  return normalizeAgentLevel(preset.intelevel ?? preset.level);
-}
-
 export function agentPresetToDbPreset(preset: AgentPreset): DbAgentPreset {
   return {
-    apid: agentPresetApid(preset),
+    apid: String(preset.id),
     name: preset.name,
     description: preset.description,
     prompt: preset.prompt,
-    intelevel: agentPresetLevel(preset),
+    intelevel: normalizeAgentLevel(preset.level),
     tools: normalizeAgentTools(preset.tools),
   };
 }
 
 export function dbPresetToAgentPreset(input: DbAgentPreset, current?: AgentPreset, updatedAt = current?.updated_at ?? ""): AgentPreset {
-  const level = normalizeAgentLevel(input.intelevel);
   return {
     id: input.apid,
-    apid: input.apid,
     name: input.name,
     category: current?.category ?? (isSystemAgentApid(input.apid) ? "system" : "regular"),
     enabled: current?.enabled ?? true,
     description: input.description,
     prompt: input.prompt,
-    level,
-    intelevel: level,
+    level: normalizeAgentLevel(input.intelevel),
     tools: normalizeAgentTools(input.tools),
     updated_at: updatedAt,
   };
 }
 
 export function agentPresetToConfig(preset: AgentPreset): AgentConfig {
-  const apid = agentPresetApid(preset);
+  const apid = String(preset.id);
   return {
     id: apid,
     name: preset.name,
@@ -144,7 +133,7 @@ export function agentPresetToConfig(preset: AgentPreset): AgentConfig {
     description: preset.description,
     updatedAt: preset.updated_at,
     prompt: preset.prompt,
-    level: agentPresetLevel(preset),
+    level: normalizeAgentLevel(preset.level),
     apid,
   };
 }
@@ -154,33 +143,28 @@ export function isSystemAgentApid(apid: string) {
 }
 
 export function agentConfigToPreset(agent: AgentConfig, values: { name: string; description?: string; prompt: string; level: number; capabilities?: string[] }, updatedAt: string): AgentPreset {
-  const apid = agent.apid ?? agent.id;
   return {
-    id: apid,
-    apid,
+    id: agent.id,
     name: values.name.trim(),
     category: agent.category,
     enabled: agent.enabled,
     description: (values.description ?? "").trim(),
     prompt: values.prompt.trim(),
     level: normalizeAgentLevel(values.level),
-    intelevel: normalizeAgentLevel(values.level),
     tools: normalizeAgentTools(values.capabilities),
     updated_at: updatedAt,
   };
 }
 
-export function createRegularAgentPreset(values: { name: string; description?: string; prompt: string; level: number; capabilities?: string[] }, updatedAt: string, apid = `agent-${Date.now()}`): AgentPreset {
+export function createRegularAgentPreset(values: { name: string; description?: string; prompt: string; level: number; capabilities?: string[] }, updatedAt: string, id = `agent-${Date.now()}`): AgentPreset {
   return {
-    id: apid,
-    apid,
+    id,
     name: values.name.trim(),
     category: "regular",
     enabled: true,
     description: (values.description ?? "").trim(),
     prompt: values.prompt.trim(),
     level: normalizeAgentLevel(values.level),
-    intelevel: normalizeAgentLevel(values.level),
     tools: normalizeAgentTools(values.capabilities),
     updated_at: updatedAt,
   };

@@ -16,7 +16,7 @@ const systemAgentSources = [
 3) 如果某条文本已经是简体中文，对应 text_hash 返回 null。
 4) 不要遗漏任何 text_hash。
 5) 不要编造原文不存在的信息。`,
-    intelevel: 0,
+    level: 0,
     tools: [],
   },
   {
@@ -28,17 +28,18 @@ const systemAgentSources = [
 
 输出要求：
 1) 只输出 JSON，字段见 schema。
-2) 先判断买家主要语言 buyer_language，然后为每条建议同时给出中文 zh 和买家语言 reply。
-3) reply 必须使用买家在对话中使用的语言，不要默认翻译为英文。
+2) 为每条建议同时给出中文 zh 和买家语言 content。
+3) content 必须使用买家在对话中使用的语言，不要默认翻译为英文。
 4) 最多给出 3 条建议，按推荐顺序排列。
 5) 语气专业、友好、简洁，优先推进成交。
 6) 不要编造任何无法从对话中确定的信息；信息不足时用提问补齐。
 7) 不要提及你是 AI，也不要输出解释性文字。
+8) tone 只能使用 formal、friendly、urgent 之一。
 
-Return JSON only with this exact top-level shape:
-{"buyer_language": "English", "items": [{"zh": "中文建议", "reply": "buyer language reply"}]}
-Do not use top-level keys such as suggestions, replies, or reply_suggestions.`,
-    intelevel: 0,
+只输出 JSON 数组，每项必须包含 id、title、content、tone、zh 字段，例如：
+[{"id":"sug-1","title":"正式报价回复","content":"buyer language reply","tone":"formal","zh":"中文建议"}]
+不要输出未定义字段或顶层对象。`,
+    level: 0,
     tools: [],
   },
   {
@@ -54,7 +55,7 @@ Do not use top-level keys such as suggestions, replies, or reply_suggestions.`,
 2) 结构清晰，重点给出可执行建议。
 3) 优先输出 JSON：{"intent": "客户意图", "evidence": ["依据"], "concerns": ["顾虑"], "next_actions": ["下一步建议"]}。
 4) 如果信息不足，请明确说明缺少哪些判断依据。`,
-    intelevel: 0,
+    level: 0,
     tools: [],
   },
   {
@@ -70,7 +71,7 @@ Do not use top-level keys such as suggestions, replies, or reply_suggestions.`,
 2) 结构清晰，重点给出可执行建议。
 3) 优先输出 JSON：{"stage": "客户阶段", "evidence": ["依据"], "next_actions": ["下一步建议"], "confidence": "置信度"}。
 4) 如果信息不足，请明确说明缺少哪些判断依据。`,
-    intelevel: 0,
+    level: 0,
     tools: [],
   },
 ] as const;
@@ -129,27 +130,23 @@ export const systemAgents: SystemAgentDefinition[] = systemAgentSources.map((age
 export const agentPresets: AgentPreset[] = [
   ...systemAgentSources.map((agent) => ({
     id: agent.apid,
-    apid: agent.apid,
     name: agent.name,
     category: "system" as const,
     enabled: true,
     description: agent.description,
     prompt: agent.prompt,
-    level: agent.intelevel,
-    intelevel: agent.intelevel,
+    level: agent.level,
     tools: [...agent.tools],
     updated_at: defaultUpdatedAt,
   })),
   ...regularAgentSources.map((agent) => ({
     id: agent.apid,
-    apid: agent.apid,
     name: agent.name,
     category: "regular" as const,
     enabled: true,
     description: agent.description,
     prompt: agent.prompt,
     level: agent.level,
-    intelevel: agent.level,
     tools: [...agent.tools],
     updated_at: agent.updatedAt,
   })),

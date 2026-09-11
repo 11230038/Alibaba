@@ -29,8 +29,6 @@ export interface AgentPreset {
   category: "system" | "regular";
   enabled: boolean;
   updated_at: string;
-  apid?: string;
-  intelevel?: number;
 }
 
 export interface SystemAgentDefinition {

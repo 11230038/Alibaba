@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildConversationExport, conversationToTuples, groupConversations, sortConversations, stageLabel, statusLabel } from "@/domain/chat/chatModel";
+import { buildConversationExport, groupConversations, sortConversations, stageLabel, statusLabel } from "@/domain/chat/chatModel";
 import type { ChatMessage, Conversation, ConversationDetail } from "@/types/chatCanonical";
 
 const summary = (id: string, updatedAt: string, status: Conversation["status"] = "following"): Conversation => ({
@@ -48,13 +48,6 @@ describe("conversation domain model", () => {
     expect(sortConversations(conversations).map((item) => item.id)).toEqual(["new", "old"]);
     expect(groupConversations(conversations, "status").map((group) => group.label)).toEqual(["跟进中", "未读待回"]);
     expect(statusLabel("closed")).toBe("已关闭");
-  });
-
-  it("builds canonical tuples without transport fields", () => {
-    expect(conversationToTuples(detail)).toEqual([
-      ["2026-09-08 10:10", "买家", "需要报价"],
-      ["2026-09-08 10:11", "我", "已收到"],
-    ]);
   });
 
   it("exports canonical details", () => {

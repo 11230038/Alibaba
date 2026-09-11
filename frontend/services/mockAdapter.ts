@@ -1,10 +1,10 @@
 import { agentConsole, agentPresets, documentLlmConfig, llmLevels, systemAgents } from "@/mock/agentData";
 import { businessCards } from "@/mock/cardData";
-import { conversationAggregates, replySuggestions } from "@/mock/conversationData";
+import { assistantSuggestions, conversationAggregates } from "@/mock/conversationData";
 import { homeDashboard } from "@/mock/homeData";
 import { mockSelfInfo } from "@/mock/selfData";
 import { keyStatus, nodeResult, proxyStatus, receiverStatus, systemStatus, taskSnapshots } from "@/mock/statusData";
-import { buildConversationExport, replySuggestionsToAssistantSuggestions } from "@/domain/chat/chatModel";
+import { buildConversationExport } from "@/domain/chat/chatModel";
 import { adaptConversationDetail, adaptConversationSummary } from "@/services/chatAdapter";
 import { buildSystemStatusSnapshot, taskSnapshotToTaskItem } from "@/domain/status/statusModel";
 import { agentPresetToConfig, agentPresetToDbPreset, dbPresetToAgentPreset, documentToLlmLevelConfig, documentToUiLlmConfig, getLatestAgentTestTurn, removeLatestAgentTestTurn, replaceLatestAgentTestReply, upsertLlmLevel } from "@/domain/agent/agentModel";
@@ -103,7 +103,7 @@ export const mockBackend: OperationsBackend = {
 
   getAssistantSuggestions: async (conversationId) => {
     buildConversationDetail(conversationId);
-    return delay(replySuggestionsToAssistantSuggestions(replySuggestions));
+    return delay(structuredClone(assistantSuggestions));
   },
 
   analyzeConversation: async (conversationId) => {
@@ -179,24 +179,24 @@ export const mockBackend: OperationsBackend = {
   },
 
   saveAgentPreset: async (input: DbAgentPreset) => {
-    const current = agentPresetStore.find((preset) => String(preset.apid ?? preset.id) === input.apid);
+    const current = agentPresetStore.find((preset) => String(preset.id) === input.apid);
     const normalized = dbPresetToAgentPreset(input, current, current?.updated_at ?? nowText());
-    agentPresetStore = current ? agentPresetStore.map((preset) => (String(preset.apid ?? preset.id) === input.apid ? normalized : preset)) : [normalized, ...agentPresetStore];
+    agentPresetStore = current ? agentPresetStore.map((preset) => (String(preset.id) === input.apid ? normalized : preset)) : [normalized, ...agentPresetStore];
     syncConsoleAgents();
     return delay(structuredClone(input));
   },
 
   deleteAgentPreset: async (id) => {
-    const exists = agentPresetStore.some((preset) => String(preset.apid ?? preset.id) === id);
-    agentPresetStore = agentPresetStore.filter((preset) => String(preset.apid ?? preset.id) !== id || preset.category === "system");
+    const exists = agentPresetStore.some((preset) => String(preset.id) === id);
+    agentPresetStore = agentPresetStore.filter((preset) => String(preset.id) !== id || preset.category === "system");
     syncConsoleAgents();
     return delay(exists);
   },
 
   restoreSystemAgentDefault: async (apid) => {
-    const source = initialState.agentPresets.find((preset) => preset.apid === apid);
+    const source = initialState.agentPresets.find((preset) => String(preset.id) === apid);
     if (!source) throw new Error("系统 Agent 默认配置不存在");
-    agentPresetStore = agentPresetStore.map((preset) => (preset.apid === apid ? structuredClone(source) : preset));
+    agentPresetStore = agentPresetStore.map((preset) => String(preset.id) === apid ? structuredClone(source) : preset);
     syncConsoleAgents();
     return delay(agentPresetToDbPreset(source));
   },
