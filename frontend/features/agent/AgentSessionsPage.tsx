@@ -5,9 +5,9 @@ import { Avatar, Button, Card, Col, Dropdown, Empty, Form, Grid, Listy, Modal, R
 import type { MenuProps } from "antd";
 import { useState } from "react";
 import { ActionConfirmModal } from "@/components/ActionConfirmModal";
-import { CollapsibleSessionListPanel } from "@/components/CollapsibleSessionListPanel";
+import { SessionListPanel } from "@/components/SessionListPanel";
 import { MessageComposer } from "@/components/MessageComposer";
-import { formatAgentSessionDate } from "@/domain/agent/agentModel";
+import { canRunAgentExecution, formatAgentSessionDate } from "@/domain/agent/agentModel";
 import { fallbackAvatarUrl, sellerAvatarUrl } from "@/domain/chat/avatarModel";
 import type { AgentTestSession } from "@/types/agent";
 import { useAgentSessionWorkbench } from "./hooks/useAgentSessionWorkbench";
@@ -26,6 +26,7 @@ export function AgentSessionsPage() {
   const [pendingDeleteSession, setPendingDeleteSession] = useState<AgentTestSession>();
   const [form] = Form.useForm<CreateSessionValues>();
   const agentNames = new Map(workbench.agents.map((agent) => [agent.id, agent.name]));
+  const canRunActiveAgent = canRunAgentExecution(workbench.activeAgent);
   const sessionActionBusy = Boolean(workbench.action);
 
   function handleSelectSession(id: string) {
@@ -33,7 +34,8 @@ export function AgentSessionsPage() {
     if (isMobile) setMobileView("detail");
   }
   async function handleCreate(values: CreateSessionValues) {
-    await workbench.createSession(values.agentId);
+    const created = await workbench.createSession(values.agentId);
+    if (!created) return;
     form.resetFields();
     setCreateOpen(false);
   }
@@ -45,7 +47,7 @@ export function AgentSessionsPage() {
   }
 
   const sessionList = (
-    <CollapsibleSessionListPanel title="会话列表" loading={workbench.loading} minHeightClassName="min-h-[720px]" mobileCollapsible={false}>
+    <SessionListPanel title="会话列表" loading={workbench.loading} minHeightClassName="min-h-[720px]">
       {workbench.sessions.length ? (
         <Listy
           items={workbench.sessions}
@@ -67,7 +69,7 @@ export function AgentSessionsPage() {
       ) : (
         <Empty description="暂无 Agent 会话" />
       )}
-    </CollapsibleSessionListPanel>
+    </SessionListPanel>
   );
   const sessionDetail = (
     <Card
@@ -88,7 +90,7 @@ export function AgentSessionsPage() {
               tools={[
                 { key: "new-session", label: "新建会话", disabled: workbench.busy },
                 { key: "undo-turn", label: "撤销一轮", disabled: workbench.busy || !workbench.canUndoTurn },
-                { key: "regenerate-reply", label: "重新回复", disabled: workbench.busy || !workbench.canRegenerateReply },
+                { key: "regenerate-reply", label: "重新回复", disabled: workbench.busy || !canRunActiveAgent || !workbench.canRegenerateReply },
               ]}
               onToolClick={(key) => {
                 if (key === "new-session") setCreateOpen(true);
@@ -97,6 +99,7 @@ export function AgentSessionsPage() {
               }}
               placeholder="输入要交给 Agent 处理的问题或任务..."
               loading={workbench.action?.type === "send"}
+              disabled={!canRunActiveAgent}
               onSend={workbench.sendMessage}
             />
           </div>
@@ -110,7 +113,7 @@ export function AgentSessionsPage() {
   return (
     <Space orientation="vertical" size="large" className="w-full">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-        <Typography.Title level={2} className="!mb-1">Agent会话</Typography.Title>
+        <Typography.Title level={2} className="!mb-1">Agent 会话</Typography.Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} disabled={workbench.busy}>新建会话</Button>
       </div>
 
@@ -191,7 +194,7 @@ function SessionListItem({ session, agentName, active, disabled, deleting, onCli
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <Typography.Text strong ellipsis>{session.title}</Typography.Text>
-            <Typography.Text type="secondary" className="shrink-0 text-xs">{formatAgentSessionDate(session.createdAt)}</Typography.Text>
+            <Typography.Text className="shrink-0 text-xs">{formatAgentSessionDate(session.createdAt)}</Typography.Text>
           </div>
           <div className="mt-1">
             <Tag color="blue">{agentName}</Tag>
@@ -232,7 +235,7 @@ function SessionMessages({ session }: { session: AgentTestSession }) {
                 }}
               />
               <Card size="small" className={isAssistant ? "bg-slate-50" : "bg-blue-50"}>
-                <Typography.Text type="secondary" className="text-xs">{item.createdAt}</Typography.Text>
+                <Typography.Text className="text-xs">{item.createdAt}</Typography.Text>
                 <Typography.Paragraph className="!mb-0 mt-2 whitespace-pre-wrap">{item.content}</Typography.Paragraph>
               </Card>
             </div>

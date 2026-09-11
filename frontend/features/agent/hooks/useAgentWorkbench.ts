@@ -2,10 +2,9 @@
 
 import { App } from "antd";
 import { createContext, createElement, useContext, useEffect, useState, type ReactNode } from "react";
-import { agentConfigToPreset, agentPresetToConfig, agentPresetToDbPreset, createRegularAgentPreset, dbPresetToAgentPreset, documentToLlmLevelConfig, documentToUiLlmConfig, upsertLlmLevel } from "@/domain/agent/agentModel";
+import { agentConfigToPreset, agentPresetToConfig, agentPresetToDbPreset, createRegularAgentPreset, dbPresetToAgentPreset, documentToLlmLevelConfig, llmLevelToDocumentConfig, upsertLlmLevel } from "@/domain/agent/agentModel";
 import { backend } from "@/services/client";
-import type { AgentConfig, AgentConsoleState, DbAgentPreset, DocumentLlmConfig, LlmConfig, LlmLevelConfig } from "@/types/agent";
-import type { AgentEditValues } from "../AgentEditModal";
+import type { AgentConfig, AgentConsoleState, AgentEditValues, DbAgentPreset, LlmLevelConfig } from "@/types/agent";
 
 function nowText() {
   return new Date().toLocaleString("zh-CN", { hour12: false }).replaceAll("/", "-");
@@ -15,129 +14,136 @@ function useAgentWorkbenchController() {
   const { message } = App.useApp();
   const [state, setState] = useState<AgentConsoleState>();
   const [loading, setLoading] = useState(true);
-  const [testAgentId, setTestAgentId] = useState<string>();
-  const [testing, setTesting] = useState(false);
   const [agentMutationId, setAgentMutationId] = useState<string>();
 
   useEffect(() => {
-    backend.getAgentConsole().then((data) => {
-      setState(data);
-      setLoading(false);
-    });
-  }, []);
+    let mounted = true;
+    backend.getAgentConsole()
+      .then((data) => {
+        if (mounted) setState(data);
+      })
+      .catch((error: unknown) => {
+        if (mounted) message.error(error instanceof Error ? error.message : "Agent 控制台加载失败");
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
 
-  async function saveLlmConfig(config: LlmConfig) {
-    const current = state?.documentLlmConfig;
-    const level = config.level ?? current?.level ?? state?.llmConfig.level;
-    if (level === undefined) throw new Error("LLM 配置缺少 level");
-    const documentConfig: DocumentLlmConfig = {
-      level,
-      base_url: config.baseUrl ?? current?.base_url ?? "",
-      api_key: config.apiKey ?? current?.api_key ?? "",
-      model_name: config.model,
-      system_prompt: config.systemPrompt,
-      context: config.context ?? current?.context ?? 12000,
-      max_tool_rounds: config.maxToolRounds === undefined ? (current?.max_tool_rounds ?? null) : config.maxToolRounds,
+    return () => {
+      mounted = false;
     };
-    const saved = await backend.saveLlmConfig(documentConfig);
-    const llmConfig = documentToUiLlmConfig(saved, state?.llmConfig ?? {
-      level,
-      model: saved.model_name,
-      temperature: 0.4,
-      maxTokens: 4096,
-      systemPrompt: saved.system_prompt,
-    });
-    setState((currentState) => {
-      if (!currentState) return currentState;
-      const savedLevel = documentToLlmLevelConfig(saved);
-      const nextLevels = upsertLlmLevel(currentState.llmLevels ?? [], savedLevel);
-      return { ...currentState, documentLlmConfig: saved, llmConfig, llmLevels: nextLevels };
-    });
-    message.success("LLM 参数已保存");
-  }
+  }, [message]);
 
   async function saveLlmLevel(config: LlmLevelConfig) {
-    await saveLlmConfig({
-      level: config.level,
-      model: config.modelName,
-      temperature: state?.llmConfig.temperature ?? 0.4,
-      maxTokens: state?.llmConfig.maxTokens ?? 4096,
-      systemPrompt: config.systemPrompt,
-      baseUrl: config.baseUrl,
-      apiKey: config.apiKey,
-      context: config.context,
-      maxToolRounds: config.maxToolRounds,
-    });
+    try {
+      const saved = await backend.saveLlmConfig(llmLevelToDocumentConfig(config));
+      setState((currentState) => {
+        if (!currentState) return currentState;
+        const savedLevel = documentToLlmLevelConfig(saved);
+        const nextLevels = upsertLlmLevel(currentState.llmLevels ?? [], savedLevel);
+        return { ...currentState, llmLevels: nextLevels };
+      });
+      message.success("LLM 参数已保存");
+      return true;
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : "LLM 参数保存失败");
+      return false;
+    }
   }
 
   async function toggleAgent(agent: AgentConfig, enabled: boolean) {
-    const updatedAt = nowText();
-    const updated: AgentConfig = { ...agent, enabled, updatedAt };
-    const prompt = agent.prompt;
-    const level = agent.level;
-    if (prompt && level !== undefined) {
-      const preset = agentConfigToPreset(updated, {
-        name: updated.name,
-        description: updated.description,
-        prompt,
-        level,
-        capabilities: updated.capabilities,
+    if (agentMutationId) return false;
+    setAgentMutationId(agent.id);
+    try {
+      const updatedAt = nowText();
+      const preset = agentConfigToPreset({ ...agent, enabled }, {
+        name: agent.name,
+        description: agent.description,
+        prompt: agent.prompt ?? "",
+        level: agent.level ?? 0,
+        capabilities: agent.capabilities,
       }, updatedAt);
-      await backend.saveAgentPreset(agentPresetToDbPreset(preset));
+      const saved = await backend.saveAgentPreset(agentPresetToDbPreset(preset));
+      syncAgentState(saved);
+      message.success(enabled ? "Agent 已启用" : "Agent 已停用");
+      return true;
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : "Agent 状态保存失败");
+      return false;
+    } finally {
+      setAgentMutationId(undefined);
     }
-    setState((current) => current ? { ...current, agents: current.agents.map((item) => item.id === updated.id ? updated : item) } : current);
   }
 
   async function saveAgent(agent: AgentConfig, values: AgentEditValues) {
-    if (agentMutationId) return;
-    const updatedAt = nowText();
-    const preset = agentConfigToPreset(agent, values, updatedAt);
-    setAgentMutationId(String(preset.id));
+    if (agentMutationId) return false;
+    setAgentMutationId(agent.id);
     try {
+      const preset = agentConfigToPreset(agent, values, nowText());
       const saved = await backend.saveAgentPreset(agentPresetToDbPreset(preset));
       syncAgentState(saved);
       message.success("Agent 已保存");
+      return true;
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : "Agent 保存失败");
+      return false;
     } finally {
       setAgentMutationId(undefined);
     }
   }
 
   async function createAgent(values: AgentEditValues) {
-    if (agentMutationId) return;
-    const preset = createRegularAgentPreset(values, nowText());
-    setAgentMutationId(String(preset.id));
+    if (agentMutationId) return false;
+    setAgentMutationId("new-agent");
     try {
+      const preset = createRegularAgentPreset(values, nowText());
       const saved = await backend.saveAgentPreset(agentPresetToDbPreset(preset));
       syncAgentState(saved);
       message.success("Agent 已创建");
+      return true;
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : "Agent 创建失败");
+      return false;
     } finally {
       setAgentMutationId(undefined);
     }
   }
 
   async function deleteAgent(agent: AgentConfig) {
-    if (agent.category !== "regular" || agentMutationId) return;
+    if (agent.category !== "regular" || agentMutationId) return false;
     setAgentMutationId(agent.id);
     try {
-      await backend.deleteAgentPreset(agent.id);
+      const deleted = await backend.deleteAgentPreset(agent.id);
+      if (!deleted) {
+        message.error("Agent 未删除");
+        return false;
+      }
       setState((current) => current ? {
         ...current,
         agents: current.agents.filter((item) => item.id !== agent.id),
         agentPresets: current.agentPresets?.filter((item) => item.id !== agent.id),
       } : current);
       message.success("Agent 已删除");
+      return true;
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : "Agent 删除失败");
+      return false;
     } finally {
       setAgentMutationId(undefined);
     }
   }
 
   async function resetSystemAgent(agent: AgentConfig) {
-    if (agent.category !== "system" || !agent.apid || agentMutationId) return;
+    if (agent.category !== "system" || !agent.apid || agentMutationId) return false;
     setAgentMutationId(agent.id);
     try {
       const restored = await backend.restoreSystemAgentDefault(agent.apid);
       syncAgentState(restored);
       message.success("系统 Agent 已重置");
+      return true;
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : "系统 Agent 重置失败");
+      return false;
     } finally {
       setAgentMutationId(undefined);
     }
@@ -147,7 +153,7 @@ function useAgentWorkbenchController() {
     setState((current) => {
       if (!current) return current;
       const currentPreset = current.agentPresets?.find((item) => String(item.id) === dbPreset.apid);
-      const preset = dbPresetToAgentPreset(dbPreset, currentPreset, currentPreset?.updated_at ?? nowText());
+      const preset = dbPresetToAgentPreset(dbPreset, currentPreset);
       const updated = agentPresetToConfig(preset);
       const agentId = String(updated.id);
       const hasAgent = current.agents.some((item) => String(item.id) === agentId);
@@ -162,36 +168,7 @@ function useAgentWorkbenchController() {
     });
   }
 
-  async function runTest(content: string) {
-    if (!testAgentId) return;
-    setTesting(true);
-    await backend.runAgentTest({ agentId: testAgentId, content });
-    const history = await backend.listAgentTestHistory();
-    setState((current) => current ? { ...current, history } : current);
-    setTesting(false);
-    message.success("测试完成");
-  }
-
-  async function deleteSession(id: string) {
-    await backend.deleteAgentTestSession(id);
-    setState((current) => current ? { ...current, history: current.history.filter((session) => session.id !== id) } : current);
-    message.success("历史已删除");
-  }
-
-  async function branchSession(id: string) {
-    const branch = await backend.branchAgentTestSession(id);
-    setState((current) => current ? { ...current, history: [branch, ...current.history] } : current);
-    message.success("已创建分支会话");
-  }
-
-  async function copySession(id: string) {
-    const session = state?.history.find((item) => item.id === id);
-    if (!session) return;
-    await navigator.clipboard.writeText(session.messages.map((item) => `${item.role}: ${item.content}`).join("\n"));
-    message.success("已复制测试历史");
-  }
-
-  return { state, loading, saveLlmConfig, saveLlmLevel, toggleAgent, saveAgent, createAgent, deleteAgent, resetSystemAgent, agentMutationId, testAgentId, setTestAgentId, testing, runTest, deleteSession, branchSession, copySession };
+  return { state, loading, saveLlmLevel, toggleAgent, saveAgent, createAgent, deleteAgent, resetSystemAgent, agentMutationId };
 }
 
 type AgentWorkbench = ReturnType<typeof useAgentWorkbenchController>;

@@ -2,8 +2,8 @@ import type { BusinessCard } from "@/types/cards";
 import type { ID } from "@/types/common";
 
 export type ConversationStatus = "unread" | "following" | "waiting" | "closed";
-export type CustomerStage = "new" | "interested" | "negotiating" | "risk" | "done";
-export type MessageRole = "buyer" | "seller" | "system" | "card";
+export type CustomerStage = "unknown" | "new" | "interested" | "negotiating" | "risk" | "done";
+export type MessageRole = "unknown" | "buyer" | "seller" | "system" | "card";
 
 export interface CustomerProfile {
   id: ID;
@@ -57,7 +57,7 @@ export interface ConversationAnalysis {
 
 export interface ConversationDetail extends Conversation {
   messages: ChatMessage[];
-  analysis: ConversationAnalysis;
+  analysis?: ConversationAnalysis;
 }
 
 export interface AssistantSuggestion {

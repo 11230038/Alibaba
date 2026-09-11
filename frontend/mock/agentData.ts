@@ -116,7 +116,7 @@ export const documentLlmConfig: DocumentLlmConfig = {
   base_url: llmLevel.baseUrl,
   api_key: llmLevel.apiKey,
   model_name: llmLevel.modelName,
-  system_prompt: "你是阿里国际站卖家助手，回答必须准确、礼貌、商业化，并保留客户上下文。",
+  system_prompt: llmLevel.systemPrompt,
   context: llmLevel.context,
   max_tool_rounds: llmLevel.maxToolRounds,
 };
@@ -153,19 +153,7 @@ export const agentPresets: AgentPreset[] = [
 ];
 
 export const agentConsole: AgentConsoleState = {
-  documentLlmConfig,
   llmLevels,
-  llmConfig: {
-    level: llmLevel.level,
-    model: llmLevel.modelName,
-    temperature: 0.4,
-    maxTokens: 4096,
-    systemPrompt: documentLlmConfig.system_prompt,
-    baseUrl: documentLlmConfig.base_url,
-    apiKey: documentLlmConfig.api_key,
-    context: documentLlmConfig.context,
-    maxToolRounds: documentLlmConfig.max_tool_rounds ?? null,
-  },
   agents: agentPresets.map(agentPresetToConfig),
   agentPresets,
   systemAgents,

@@ -36,7 +36,7 @@ export interface MessageExecution {
 }
 
 export interface SendMessageResult {
-  message: ChatMessage;
+  message?: ChatMessage;
   conversation: ConversationDetail;
   execution: MessageExecution;
 }

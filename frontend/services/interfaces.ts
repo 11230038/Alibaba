@@ -1,13 +1,12 @@
 import type { AgentConsoleState, AgentTestInput, AgentTestResult, AgentTestSession, DbAgentPreset, DocumentLlmConfig, SystemAgentDefinition } from "@/types/agent";
 import type { AssistantSuggestion, Conversation, ConversationAnalysis, ConversationDetail } from "@/types/chatCanonical";
 import type { ExportConversationsInput, ExportConversationsResult, RequestTranslationsInput, RequestTranslationsResult, SendMessageInput, SendMessageResult, TranslateMessageInput, TranslateMessageResult } from "@/types/chatOperations";
-import type { HomeDashboard, SelfInfo } from "@/types/home";
+import type { SelfInfo } from "@/types/home";
 import type { CreateTestTaskInput, KeyStatus, NetworkStatus, NodeTestResult, SystemStatusSnapshot, TaskItem, TaskSnapshot } from "@/types/status";
 
 export interface OperationsBackend {
   getSelfInfo(): Promise<SelfInfo | null>;
   resetCache(): Promise<void>;
-  getHomeDashboard(): Promise<HomeDashboard>;
 
   requestTranslations(input: RequestTranslationsInput): Promise<RequestTranslationsResult>;
   getTranslation(text: string): Promise<string | null>;

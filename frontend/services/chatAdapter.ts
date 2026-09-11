@@ -1,7 +1,7 @@
 import type { BusinessCard } from "@/types/cards";
 import type { TaskSnapshot } from "@/types/status";
-import type { ConversationAnalysis, ConversationDetail, Conversation, ChatMessage, CustomerProfile, CustomerStage, MessageRole } from "@/types/chatCanonical";
-import type { ConversationAggregateDto, ConversationAnalysisDto, ConversationMessageDto, CustomerViewDto } from "@/types/chatTransport";
+import type { ConversationAnalysis, ConversationDetail, Conversation, ChatMessage, CustomerProfile, MessageRole } from "@/types/chatCanonical";
+import type { ConversationAggregateDto, ConversationAnalysisDto, ConversationMessageDto, ConversationSendResultDto } from "@/types/chatTransport";
 
 interface ChatAdapterOptions {
   cards?: BusinessCard[];
@@ -23,39 +23,20 @@ export function adaptConversationSummary(aggregate: ConversationAggregateDto): C
 export function adaptConversationDetail(aggregate: ConversationAggregateDto | undefined, options: ChatAdapterOptions = {}): ConversationDetail {
   if (!aggregate) throw new Error("会话聚合数据为空");
   const summary = adaptConversationSummary(aggregate);
-  const messages = (aggregate.messages ?? []).map((item) => adaptMessage(item, options.cards ?? []));
+  const cards = aggregate.business_cards ?? options.cards ?? [];
+  const messages = (aggregate.messages ?? []).map((item) => adaptMessage(item, cards));
   return {
     ...summary,
     messages,
-    analysis: adaptAnalysis(aggregate.analysis, summary),
+    analysis: adaptAnalysis(aggregate.analysis),
   };
 }
 
-export function adaptSendMessageResult(input: {
-  message: ConversationMessageDto;
-  conversation: ConversationAggregateDto;
-  execution: ConversationExecutionDto;
-}, options: ChatAdapterOptions = {}) {
+export function adaptSendMessageResult(input: ConversationSendResultDto, options: ChatAdapterOptions = {}) {
   const conversation = adaptConversationDetail(input.conversation, options);
-  const message = adaptMessage(input.message, options.cards ?? []);
+  const cards = input.conversation.business_cards ?? options.cards ?? [];
+  const message = input.message ? adaptMessage(input.message, cards) : undefined;
   return { message, conversation, execution: adaptExecution(input.execution) };
-}
-
-export interface ConversationExecutionDto {
-  success: boolean;
-  message: string;
-  task_snapshot: ConversationExecutionTaskDto | null;
-}
-
-export interface ConversationExecutionTaskDto {
-  task_id: string;
-  description: string;
-  status: "queued" | "running" | "succeeded" | "failed";
-  message: string;
-  result: unknown;
-  created_at: number;
-  started_at: number | null;
-  completed_at: number | null;
 }
 
 function adaptCustomer(aggregate: ConversationAggregateDto): CustomerProfile {
@@ -75,15 +56,12 @@ function adaptCustomer(aggregate: ConversationAggregateDto): CustomerProfile {
   };
 }
 
-function deriveCustomerView(aggregate: ConversationAggregateDto): CustomerViewDto {
+function deriveCustomerView(aggregate: ConversationAggregateDto) {
   const accounts = aggregate.accounts ?? [];
   const customers = aggregate.customers ?? [];
   const participantIds = new Set(aggregate.participants ?? []);
-  const participantAccounts = accounts.filter((account) => participantIds.has(account.aid));
   const buyerAid = (aggregate.messages ?? []).find((item) => item.role === "buyer")?.message.sender;
-  const account = participantAccounts.find((item) => item.aid === buyerAid)
-    ?? participantAccounts[0]
-    ?? accounts.find((item) => item.aid === buyerAid);
+  const account = buyerAid === undefined ? undefined : accounts.find((item) => item.aid === buyerAid && participantIds.has(item.aid));
   const customer = account ? customers.find((item) => item.cid === account.cid) : undefined;
   const extra = customer?.extra ?? {};
   const accountExtra = account?.extra ?? {};
@@ -91,13 +69,13 @@ function deriveCustomerView(aggregate: ConversationAggregateDto): CustomerViewDt
     id: String(customer?.cid ?? account?.cid ?? aggregate.sid),
     ali_id: account?.account ?? null,
     name: customer?.name ?? account?.nickname ?? account?.account ?? "未知客户",
-    company: stringValue(extra.company) ?? "未知公司",
-    country: customer?.region ?? "未知",
+    company: stringValue(extra.company) ?? "",
+    country: customer?.region ?? "",
     email: stringValue(accountExtra.email) ?? "",
     phone: stringValue(accountExtra.phone) ?? "",
-    stage: "new",
+    stage: "unknown" as const,
     tags: [],
-    availability: "暂未确认",
+    availability: "",
     behavior: [],
   };
 }
@@ -122,17 +100,8 @@ function adaptMessage(item: ConversationMessageDto, cards: BusinessCard[]): Chat
   };
 }
 
-function adaptAnalysis(input: ConversationAnalysisDto | undefined, summary: Conversation): ConversationAnalysis {
-  if (!input) {
-    return {
-      intent: summary.latestMessage || "客户需求沟通",
-      stage: summary.customer.stage,
-      score: 0,
-      risks: [],
-      nextActions: [],
-      summary: `${summary.customer.name} 当前处于${stageLabel(summary.customer.stage)}阶段。`,
-    };
-  }
+function adaptAnalysis(input: ConversationAnalysisDto | undefined): ConversationAnalysis | undefined {
+  if (!input) return undefined;
   return {
     intent: input.intent,
     stage: input.stage,
@@ -145,7 +114,7 @@ function adaptAnalysis(input: ConversationAnalysisDto | undefined, summary: Conv
   };
 }
 
-function adaptExecution(input: ConversationExecutionDto): { success: boolean; message: string; task_snapshot: TaskSnapshot | null } {
+function adaptExecution(input: ConversationSendResultDto["execution"]): { success: boolean; message: string; task_snapshot: TaskSnapshot | null } {
   return {
     success: input.success,
     message: input.message,
@@ -163,7 +132,7 @@ function messageRole(role: ConversationMessageDto["role"], type: string, card?: 
   if (role) return role;
   if (card || type === "card") return "card";
   if (type === "system") return "system";
-  return "buyer";
+  return "unknown";
 }
 
 function contentCardId(content: unknown) {
@@ -196,8 +165,4 @@ function formatAggregateTime(value: string | number | null) {
 
 function stringValue(value: unknown) {
   return typeof value === "string" && value.trim() ? value : undefined;
-}
-
-function stageLabel(stage: CustomerStage) {
-  return { new: "新线索", interested: "高意向", negotiating: "谈判中", risk: "风险客户", done: "已成交" }[stage];
 }

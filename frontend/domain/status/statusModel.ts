@@ -1,44 +1,22 @@
 import type { HealthStatus, KeyStatus, NetworkStatus, NodeTestResult, SystemStatusSnapshot, TaskItem, TaskSnapshot, TaskStatus } from "@/types/status";
 
-export function healthLabel(status: HealthStatus) {
-  return {
-    healthy: "正常",
-    warning: "告警",
-    offline: "离线",
-  }[status];
-}
-
-export function taskStatusLabel(status: TaskStatus) {
-  return {
-    queued: "排队中",
-    running: "运行中",
-    succeeded: "成功",
-    failed: "失败",
-  }[status];
-}
-
-export function healthScore(status: HealthStatus) {
-  return {
-    healthy: 100,
-    warning: 68,
-    offline: 0,
-  }[status];
-}
-
-export function documentTaskStatusToUi(status: TaskSnapshot["status"]): TaskStatus {
-  return status === "pending" ? "queued" : status;
-}
-
 export function taskSnapshotToTaskItem(snapshot: TaskSnapshot): TaskItem {
+  const result = snapshot.result ?? undefined;
   return {
     id: snapshot.task_id,
     type: snapshot.description,
     status: documentTaskStatusToUi(snapshot.status),
     createdAt: formatStatusTime(snapshot.created_at),
     duration: formatDuration(snapshot.started_at, snapshot.completed_at),
-    owner: "任务队列",
-    remark: snapshot.message,
+    target: snapshot.target,
+    message: snapshot.message,
+    result: result?.[1],
+    resultSuccess: result?.[0],
   };
+}
+
+function documentTaskStatusToUi(status: TaskSnapshot["status"]): TaskStatus {
+  return status === "pending" ? "queued" : status;
 }
 
 export function buildSystemStatusSnapshot({
@@ -63,33 +41,29 @@ export function buildSystemStatusSnapshot({
         id: "health-identity",
         name: "身份服务",
         status: userStatus.has_key && userStatus.db_exists ? "healthy" : "warning",
-        latency: 68,
+        latency: null,
         description: `${userStatus.source} · ${userStatus.ali_id || "未识别"}`,
-        lastCheckedAt: updatedAt,
       },
       {
         id: "health-proxy",
         name: "代理服务",
         status: networkToHealth(proxyStatus),
-        latency: proxyStatus.latency_ms ?? 0,
+        latency: proxyStatus.latency_ms,
         description: `${proxyStatus.host}:${proxyStatus.port}${proxyStatus.error ? ` · ${proxyStatus.error}` : ""}`,
-        lastCheckedAt: updatedAt,
       },
       {
         id: "health-receiver",
         name: "Receiver",
         status: networkToHealth(receiverStatus),
-        latency: receiverStatus.latency_ms ?? 0,
+        latency: receiverStatus.latency_ms,
         description: `${receiverStatus.host}:${receiverStatus.port}${receiverStatus.error ? ` · ${receiverStatus.error}` : ""}`,
-        lastCheckedAt: updatedAt,
       },
       {
         id: "health-node",
         name: "MaaFW 节点",
         status: nodeResult.success ? "healthy" : "offline",
-        latency: nodeResult.success ? 120 : 0,
+        latency: null,
         description: nodeResult.message,
-        lastCheckedAt: updatedAt,
       },
     ],
     tasks: taskSnapshots.map(taskSnapshotToTaskItem),
@@ -103,7 +77,7 @@ export function buildSystemStatusSnapshot({
 
 function networkToHealth(status: NetworkStatus): HealthStatus {
   if (!status.reachable) return "offline";
-  if ((status.latency_ms ?? 0) > 180) return "warning";
+  if (status.latency_ms !== null && status.latency_ms > 180) return "warning";
   return "healthy";
 }
 
@@ -112,7 +86,7 @@ function formatStatusTime(value: number) {
 }
 
 function formatDuration(startedAt: number | null, completedAt: number | null) {
-  if (!startedAt) return "0s";
+  if (startedAt === null) return "0s";
   const end = completedAt ?? Date.now() / 1000;
   const seconds = Math.max(0, Math.round(end - startedAt));
   const minutes = Math.floor(seconds / 60);

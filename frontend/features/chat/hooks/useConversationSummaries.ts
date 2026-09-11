@@ -16,7 +16,6 @@ export function useConversationSummaries() {
       setConversations(await backend.listConversations());
     } catch {
       message.error("聊天数据加载失败");
-      setConversations([]);
     } finally {
       setLoading(false);
     }

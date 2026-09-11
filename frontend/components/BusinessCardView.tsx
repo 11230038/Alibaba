@@ -14,12 +14,12 @@ export function BusinessCardView({ card, compact = false, onClick }: { card: Bus
       <Space orientation="vertical" size={compact ? 6 : 10} className="w-full">
         <Space wrap>
           <Tag color="blue">{getCardTypeLabel(card.type)}</Tag>
-          <Tag color={card.status === "published" ? "green" : card.status === "reviewing" ? "purple" : "default"}>{getCardStatusLabel(card.status)}</Tag>
+          {card.status ? <Tag color={card.status === "published" ? "green" : card.status === "reviewing" ? "purple" : "default"}>{getCardStatusLabel(card.status)}</Tag> : null}
         </Space>
         <Typography.Title level={compact ? 5 : 4} className="!mb-0">
           {card.title}
         </Typography.Title>
-        <Typography.Paragraph type="secondary" ellipsis={compact ? { rows: 2 } : false} className="!mb-0">
+        <Typography.Paragraph ellipsis={compact ? { rows: 2 } : false} className="!mb-0">
           {card.summary}
         </Typography.Paragraph>
         <Space wrap>

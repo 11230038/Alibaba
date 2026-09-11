@@ -1,4 +1,4 @@
-import type { AgentConfig, AgentPreset, AgentTestMessage, AgentTestSession, DbAgentPreset, DocumentLlmConfig, LlmConfig, LlmLevelConfig } from "@/types/agent";
+import type { AgentConfig, AgentEditValues, AgentPreset, AgentTestMessage, AgentTestSession, DbAgentPreset, DocumentLlmConfig, LlmLevelConfig } from "@/types/agent";
 
 export type AgentTestTurn = {
   user: AgentTestMessage;
@@ -14,14 +14,15 @@ export const SYSTEM_AGENT_APIDS = {
   intentAnalysis: "agent-c9b80fdfad234392b55d84de93a186ae",
 } as const;
 
-const TOOL_LABELS: Record<string, string> = {
-  crm_query: "CRM 查询",
-  quote_template: "报价模板",
-  order_summary: "订单摘要",
-  logistics_calculator: "物流计算",
-};
+export const AGENT_TOOL_OPTIONS = [
+  { label: "CRM 查询", value: "crm_query" },
+  { label: "报价模板", value: "quote_template" },
+  { label: "订单摘要", value: "order_summary" },
+  { label: "物流计算", value: "logistics_calculator" },
+] as const;
 
-const TOOL_NAMES = Object.fromEntries(Object.entries(TOOL_LABELS).map(([name, label]) => [label, name]));
+const TOOL_LABELS = new Map<string, string>(AGENT_TOOL_OPTIONS.map((option) => [option.value, option.label]));
+const TOOL_NAMES = new Map<string, string>(AGENT_TOOL_OPTIONS.map((option) => [option.label, option.value]));
 
 export function getLatestAgentTestTurn(session: AgentTestSession): AgentTestTurn | null {
   const endIndex = session.messages.length - 1;
@@ -51,6 +52,12 @@ export function replaceLatestAgentTestReply(session: AgentTestSession, reply: Ag
   return { ...session, messages: session.messages.map((message, index) => index === turn.endIndex ? reply : message) };
 }
 
+export function nextAgentTestSessionId(sessions: AgentTestSession[], removedId: string) {
+  const index = sessions.findIndex((session) => session.id === removedId);
+  const next = sessions.filter((session) => session.id !== removedId);
+  return next[Math.max(0, index - 1)]?.id ?? next[0]?.id;
+}
+
 export function agentCategoryLabel(category: AgentConfig["category"]) {
   return category === "system" ? "系统 Agent" : "普通 Agent";
 }
@@ -64,8 +71,8 @@ export function filterAgentTestSessionsByCategory(sessions: AgentTestSession[], 
   return sessions.filter((session) => agentIds.has(session.agentId));
 }
 
-export function enabledLabel(enabled: boolean) {
-  return enabled ? "已启用" : "已停用";
+export function canRunAgentExecution(agent: AgentConfig | undefined): agent is AgentConfig {
+  return Boolean(agent?.enabled);
 }
 
 export function formatAgentSessionDate(createdAt: string) {
@@ -82,38 +89,42 @@ export function normalizeAgentLevel(value: number) {
 }
 
 export function agentToolToDisplayLabel(tool: string) {
-  return TOOL_LABELS[tool] ?? tool;
+  return TOOL_LABELS.get(tool) ?? tool;
 }
 
 export function agentToolToRegisteredName(tool: string) {
-  return TOOL_NAMES[tool] ?? tool;
+  return TOOL_NAMES.get(tool) ?? tool;
 }
 
 export function normalizeAgentTools(tools: string[] = []) {
-  return tools.map((tool) => agentToolToRegisteredName(tool.trim())).filter(Boolean);
+  const names = tools.map((tool) => agentToolToRegisteredName(tool.trim())).filter(Boolean);
+  return Array.from(new Set(names));
 }
 
 export function displayAgentTools(tools: string[] = []) {
-  return tools.map(agentToolToDisplayLabel);
+  return normalizeAgentTools(tools).map(agentToolToDisplayLabel);
 }
 
 export function agentPresetToDbPreset(preset: AgentPreset): DbAgentPreset {
   return {
-    apid: String(preset.id),
+    apid: preset.id,
     name: preset.name,
     description: preset.description,
     prompt: preset.prompt,
     intelevel: normalizeAgentLevel(preset.level),
     tools: normalizeAgentTools(preset.tools),
+    enabled: preset.enabled,
+    updated_at: preset.updated_at,
+    category: preset.category,
   };
 }
 
-export function dbPresetToAgentPreset(input: DbAgentPreset, current?: AgentPreset, updatedAt = current?.updated_at ?? ""): AgentPreset {
+export function dbPresetToAgentPreset(input: DbAgentPreset, current?: AgentPreset, updatedAt = input.updated_at): AgentPreset {
   return {
     id: input.apid,
     name: input.name,
-    category: current?.category ?? (isSystemAgentApid(input.apid) ? "system" : "regular"),
-    enabled: current?.enabled ?? true,
+    category: input.category ?? current?.category ?? (isSystemAgentApid(input.apid) ? "system" : "regular"),
+    enabled: input.enabled,
     description: input.description,
     prompt: input.prompt,
     level: normalizeAgentLevel(input.intelevel),
@@ -123,18 +134,18 @@ export function dbPresetToAgentPreset(input: DbAgentPreset, current?: AgentPrese
 }
 
 export function agentPresetToConfig(preset: AgentPreset): AgentConfig {
-  const apid = String(preset.id);
+  const id = preset.id;
   return {
-    id: apid,
+    id,
     name: preset.name,
     category: preset.category,
     enabled: preset.enabled,
-    capabilities: displayAgentTools(normalizeAgentTools(preset.tools)),
+    capabilities: normalizeAgentTools(preset.tools),
     description: preset.description,
     updatedAt: preset.updated_at,
     prompt: preset.prompt,
     level: normalizeAgentLevel(preset.level),
-    apid,
+    apid: id,
   };
 }
 
@@ -142,30 +153,46 @@ export function isSystemAgentApid(apid: string) {
   return Object.values(SYSTEM_AGENT_APIDS).includes(apid as (typeof SYSTEM_AGENT_APIDS)[keyof typeof SYSTEM_AGENT_APIDS]);
 }
 
-export function agentConfigToPreset(agent: AgentConfig, values: { name: string; description?: string; prompt: string; level: number; capabilities?: string[] }, updatedAt: string): AgentPreset {
+export function normalizeAgentEditValues(values: AgentEditValues) {
+  const name = stringValue(values.name).trim();
+  const prompt = stringValue(values.prompt).trim();
+  if (!name) throw new Error("请输入名称");
+  if (!prompt) throw new Error("请输入提示词");
+  return {
+    name,
+    description: stringValue(values.description).trim(),
+    prompt,
+    level: normalizeAgentLevel(numberValue(values.level)),
+    capabilities: normalizeAgentTools(values.capabilities),
+  };
+}
+
+export function agentConfigToPreset(agent: AgentConfig, values: AgentEditValues, updatedAt: string): AgentPreset {
+  const normalized = normalizeAgentEditValues(values);
   return {
     id: agent.id,
-    name: values.name.trim(),
+    name: normalized.name,
     category: agent.category,
     enabled: agent.enabled,
-    description: (values.description ?? "").trim(),
-    prompt: values.prompt.trim(),
-    level: normalizeAgentLevel(values.level),
-    tools: normalizeAgentTools(values.capabilities),
+    description: normalized.description,
+    prompt: normalized.prompt,
+    level: normalized.level,
+    tools: normalized.capabilities,
     updated_at: updatedAt,
   };
 }
 
-export function createRegularAgentPreset(values: { name: string; description?: string; prompt: string; level: number; capabilities?: string[] }, updatedAt: string, id = `agent-${Date.now()}`): AgentPreset {
+export function createRegularAgentPreset(values: AgentEditValues, updatedAt: string, id = `agent-${Date.now()}`): AgentPreset {
+  const normalized = normalizeAgentEditValues(values);
   return {
     id,
-    name: values.name.trim(),
+    name: normalized.name,
     category: "regular",
     enabled: true,
-    description: (values.description ?? "").trim(),
-    prompt: values.prompt.trim(),
-    level: normalizeAgentLevel(values.level),
-    tools: normalizeAgentTools(values.capabilities),
+    description: normalized.description,
+    prompt: normalized.prompt,
+    level: normalized.level,
+    tools: normalized.capabilities,
     updated_at: updatedAt,
   };
 }
@@ -209,15 +236,10 @@ export function upsertLlmLevel(levels: LlmLevelConfig[], next: LlmLevelConfig) {
     : [...levels, next].sort((a, b) => a.level - b.level);
 }
 
-export function documentToUiLlmConfig(input: DocumentLlmConfig, current: LlmConfig): LlmConfig {
-  return {
-    ...current,
-    level: input.level,
-    model: input.model_name,
-    systemPrompt: input.system_prompt,
-    baseUrl: input.base_url,
-    apiKey: input.api_key,
-    context: input.context,
-    maxToolRounds: normalizeToolRoundLimit(input.max_tool_rounds),
-  };
+function stringValue(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" ? value : Number.NaN;
 }

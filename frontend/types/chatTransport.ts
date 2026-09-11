@@ -1,3 +1,4 @@
+import type { BusinessCard } from "@/types/cards";
 import type { ID } from "@/types/common";
 
 export type TransportMessageRole = "buyer" | "seller" | "system" | "card";
@@ -114,10 +115,11 @@ export interface ConversationAggregateDto extends SessionMeta {
   status: TransportConversationStatus;
   priority: "high" | "medium" | "low";
   analysis?: ConversationAnalysisDto;
+  business_cards?: BusinessCard[];
 }
 
 export interface ConversationSendResultDto {
-  message: ConversationMessageDto;
+  message?: ConversationMessageDto;
   conversation: ConversationAggregateDto;
   execution: {
     success: boolean;

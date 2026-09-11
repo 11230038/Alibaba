@@ -10,10 +10,12 @@ export function CardDetailDrawer({ card, open, onClose }: { card?: BusinessCard;
       {card ? (
         <div className="space-y-4">
           <BusinessCardView card={card} />
-          <div>
-            <Typography.Title level={5}>推荐使用场景</Typography.Title>
-            <Typography.Paragraph>{card.recommendedScenario}</Typography.Paragraph>
-          </div>
+          {card.recommendedScenario ? (
+            <div>
+              <Typography.Title level={5}>推荐使用场景</Typography.Title>
+              <Typography.Paragraph>{card.recommendedScenario}</Typography.Paragraph>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </Drawer>

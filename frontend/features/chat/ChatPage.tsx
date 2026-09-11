@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Button, Card, Col, Row, Space, Spin, Typography } from "antd";
 import { useRouter } from "next/navigation";
 import { CardDetailDrawer } from "@/components/CardDetailDrawer";
-import { CollapsibleSessionListPanel } from "@/components/CollapsibleSessionListPanel";
+import { SessionListPanel } from "@/components/SessionListPanel";
 import { ConversationList } from "./conversation/ConversationList";
 import { CustomerInfo } from "./conversation/CustomerInfo";
 import { MessageTimeline } from "./conversation/MessageTimeline";
@@ -33,23 +33,17 @@ export function ChatPage() {
     void workbench.selectConversation(id);
   }
 
-  async function openAnalysis(focus: AnalysisFocus) {
+  function openAnalysis(focus: AnalysisFocus) {
     setAnalysisFocus(focus);
     workbench.setAnalysisOpen(true);
-    try {
-      await workbench.analyzeConversation();
-    } catch {
-      workbench.setAnalysisOpen(false);
-    }
+    void workbench.analyzeConversation();
   }
 
   const sessionList = (
-    <CollapsibleSessionListPanel
+    <SessionListPanel
       title="会话列表"
       loading={workbench.loading}
-      minHeightClassName="min-h-[720px]"
-      mobileCollapsible={false}
-      extra={<Button type="link" size="small" icon={<SettingOutlined />} onClick={() => router.push("/batch")}>管理会话</Button>}
+      minHeightClassName="min-h-[720px]"      extra={<Button type="link" size="small" icon={<SettingOutlined />} onClick={() => router.push("/batch")}>管理会话</Button>}
     >
       <ConversationList
         conversations={workbench.conversations}
@@ -58,7 +52,7 @@ export function ChatPage() {
         onGroupModeChange={workbench.setGroupMode}
         onSelect={handleSelectConversation}
       />
-    </CollapsibleSessionListPanel>
+    </SessionListPanel>
   );
   const sessionDetail = (
     <Card
@@ -95,7 +89,7 @@ export function ChatPage() {
           </div>
         </div>
       ) : (
-        <Typography.Text type="secondary">请选择一个会话</Typography.Text>
+        <Typography.Text>请选择一个会话</Typography.Text>
       )}
     </Card>
   );
@@ -121,7 +115,7 @@ export function ChatPage() {
       </Row>
 
       <AssistantSuggestionModal open={workbench.suggestionOpen} suggestions={workbench.suggestions} onClose={() => workbench.setSuggestionOpen(false)} onInsert={workbench.insertSuggestion} />
-      <ChatAnalysisModal open={workbench.analysisOpen} analysis={active?.analysis} focus={analysisFocus} onClose={() => workbench.setAnalysisOpen(false)} />
+      <ChatAnalysisModal open={workbench.analysisOpen} analysis={active?.analysis} focus={analysisFocus} loading={workbench.analysisLoading} error={workbench.analysisError} onClose={() => workbench.setAnalysisOpen(false)} />
       <CustomerInfo conversation={active} open={customerInfoOpen} onClose={() => setCustomerInfoOpen(false)} />
       <CardDetailDrawer card={workbench.activeCard} open={Boolean(workbench.activeCard)} onClose={() => workbench.setActiveCardId(undefined)} />
     </Space>

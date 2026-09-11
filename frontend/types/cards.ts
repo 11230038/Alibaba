@@ -47,12 +47,12 @@ export interface BusinessCard {
   id: ID;
   title: string;
   type: BusinessCardType;
-  status: BusinessCardStatus;
+  status?: BusinessCardStatus;
   summary: string;
-  owner: string;
-  updatedAt: string;
+  owner?: string;
+  updatedAt?: string;
   tags: string[];
   coverTone: string;
   details: Array<{ label: string; value: string }>;
-  recommendedScenario: string;
+  recommendedScenario?: string;
 }

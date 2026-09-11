@@ -5,17 +5,17 @@ import { Button, Card, Space, Switch, Table, Tag, Typography } from "antd";
 import Link from "next/link";
 import { useState } from "react";
 import { ActionConfirmModal } from "@/components/ActionConfirmModal";
-import { StatusTag } from "@/components/StatusTag";
 import { HydrationSafeTable } from "@/components/HydrationSafeTable";
-import { agentCategoryLabel, filterAgentsByCategory } from "@/domain/agent/agentModel";
-import type { AgentConfig } from "@/types/agent";
-import { AgentEditModal, type AgentEditValues } from "./AgentEditModal";
+import { StatusTag } from "@/components/StatusTag";
+import { agentCategoryLabel, displayAgentTools, filterAgentsByCategory } from "@/domain/agent/agentModel";
+import type { AgentConfig, AgentEditValues } from "@/types/agent";
+import { AgentEditModal } from "./AgentEditModal";
 import { useAgentWorkbench } from "./hooks/useAgentWorkbench";
 
 type AgentCategory = AgentConfig["category"];
 
 type AgentPageProps = {
-  category?: AgentCategory;
+  category: AgentCategory;
 };
 
 type PendingAgentAction = {
@@ -26,31 +26,29 @@ type PendingAgentAction = {
 export function AgentPage({ category }: AgentPageProps) {
   const workbench = useAgentWorkbench();
   const agents = workbench.state?.agents ?? [];
-  const visibleAgents = category ? filterAgentsByCategory(agents, category) : agents;
+  const visibleAgents = filterAgentsByCategory(agents, category);
   const [editingAgent, setEditingAgent] = useState<AgentConfig>();
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingAgentAction, setPendingAgentAction] = useState<PendingAgentAction>();
-  const title = category ? agentCategoryLabel(category) : "Agent";
+  const title = agentCategoryLabel(category);
 
   async function handleAgentAction() {
     if (!pendingAgentAction) return;
-    if (pendingAgentAction.type === "delete") {
-      await workbench.deleteAgent(pendingAgentAction.agent);
-    } else {
-      await workbench.resetSystemAgent(pendingAgentAction.agent);
-    }
-    setPendingAgentAction(undefined);
+    const ok = pendingAgentAction.type === "delete"
+      ? await workbench.deleteAgent(pendingAgentAction.agent)
+      : await workbench.resetSystemAgent(pendingAgentAction.agent);
+    if (ok) setPendingAgentAction(undefined);
   }
 
   async function handleSave(values: AgentEditValues) {
     if (editingAgent) {
-      await workbench.saveAgent(editingAgent, values);
-      setEditingAgent(undefined);
+      const ok = await workbench.saveAgent(editingAgent, values);
+      if (ok) setEditingAgent(undefined);
       return;
     }
     if (createOpen) {
-      await workbench.createAgent(values);
-      setCreateOpen(false);
+      const ok = await workbench.createAgent(values);
+      if (ok) setCreateOpen(false);
     }
   }
 
@@ -59,14 +57,7 @@ export function AgentPage({ category }: AgentPageProps) {
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <Typography.Title level={2} className="!mb-1">{title}</Typography.Title>
       </div>
-      {category ? (
-        <AgentGroupTable title={title} category={category} agents={visibleAgents} loading={workbench.loading} mutationId={workbench.agentMutationId} onToggle={workbench.toggleAgent} onEdit={setEditingAgent} onCreate={category === "regular" ? () => setCreateOpen(true) : undefined} onDelete={(agent) => setPendingAgentAction({ agent, type: "delete" })} onReset={(agent) => setPendingAgentAction({ agent, type: "reset" })} />
-      ) : (
-        <>
-          <AgentGroupTable title="系统 Agent" category="system" agents={filterAgentsByCategory(agents, "system")} loading={workbench.loading} mutationId={workbench.agentMutationId} onToggle={workbench.toggleAgent} onEdit={setEditingAgent} onDelete={(agent) => setPendingAgentAction({ agent, type: "delete" })} onReset={(agent) => setPendingAgentAction({ agent, type: "reset" })} />
-          <AgentGroupTable title="普通 Agent" category="regular" agents={filterAgentsByCategory(agents, "regular")} loading={workbench.loading} mutationId={workbench.agentMutationId} onToggle={workbench.toggleAgent} onEdit={setEditingAgent} onDelete={(agent) => setPendingAgentAction({ agent, type: "delete" })} onReset={(agent) => setPendingAgentAction({ agent, type: "reset" })} />
-        </>
-      )}
+      <AgentGroupTable title={title} category={category} agents={visibleAgents} loading={workbench.loading} mutationId={workbench.agentMutationId} onToggle={workbench.toggleAgent} onEdit={setEditingAgent} onCreate={category === "regular" ? () => setCreateOpen(true) : undefined} onDelete={(agent) => setPendingAgentAction({ agent, type: "delete" })} onReset={(agent) => setPendingAgentAction({ agent, type: "reset" })} />
 
       <AgentEditModal agent={editingAgent} category={category} title={createOpen ? "新增普通 Agent" : undefined} open={Boolean(editingAgent) || createOpen} saving={Boolean(workbench.agentMutationId)} onClose={() => { setEditingAgent(undefined); setCreateOpen(false); }} onSave={handleSave} />
       <ActionConfirmModal
@@ -88,14 +79,12 @@ export function AgentPage({ category }: AgentPageProps) {
 }
 
 function AgentGroupTable({ title, category, agents, loading, mutationId, onToggle, onEdit, onCreate, onDelete, onReset }: { title: string; category: AgentCategory; agents: AgentConfig[]; loading: boolean; mutationId?: string; onToggle: (agent: AgentConfig, enabled: boolean) => void; onEdit: (agent: AgentConfig) => void; onCreate?: () => void; onDelete: (agent: AgentConfig) => void; onReset: (agent: AgentConfig) => void }) {
-  const extra = onCreate || category === "regular" ? (
+  const extra = category === "regular" ? (
     <Space size="small">
       {onCreate ? <Button size="small" type="primary" icon={<PlusOutlined />} onClick={onCreate}>新增 Agent</Button> : null}
-      {category === "regular" ? (
-        <Link href="/chat/agent-sessions">
-          <Button size="small" icon={<MessageOutlined />}>对话测试</Button>
-        </Link>
-      ) : null}
+      <Link href="/chat/agent-sessions">
+        <Button size="small" icon={<MessageOutlined />}>对话测试</Button>
+      </Link>
     </Space>
   ) : undefined;
 
@@ -109,9 +98,9 @@ function AgentGroupTable({ title, category, agents, loading, mutationId, onToggl
         columns={[
           { title: "名称", dataIndex: "name" },
           { title: "类型", dataIndex: "category", render: (value: AgentCategory) => <StatusTag status={value} /> },
-          ...(category === "regular" ? [{ title: "能力", dataIndex: "capabilities", render: (items: string[]) => <Space wrap>{items.map((item) => <Tag key={item}>{item}</Tag>)}</Space> }] : []),
+          ...(category === "regular" ? [{ title: "能力", dataIndex: "capabilities", render: (items: string[]) => <Space wrap>{displayAgentTools(items).map((item) => <Tag key={item}>{item}</Tag>)}</Space> }] : []),
           { title: "提示词", dataIndex: "prompt", width: 360, ellipsis: true },
-          { title: "启用", dataIndex: "enabled", render: (enabled: boolean, record: AgentConfig) => <Switch checked={enabled} onChange={(checked) => onToggle(record, checked)} /> },
+          { title: "启用", dataIndex: "enabled", render: (enabled: boolean, record: AgentConfig) => <Switch checked={enabled} loading={mutationId === record.id} onChange={(checked) => onToggle(record, checked)} /> },
           {
             title: "操作",
             render: (_: unknown, record: AgentConfig) => (

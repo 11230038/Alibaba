@@ -1,12 +1,11 @@
 "use client";
 
-import { App, Card, Space, Typography } from "antd";
+import { Card, Space, Typography } from "antd";
 import { BatchManagement } from "./batch/BatchManagement";
 import { ConversationList } from "./conversation/ConversationList";
 import { useBatchManagement } from "./hooks/useBatchManagement";
 
 export function BatchPage() {
-  const { message } = App.useApp();
   const workbench = useBatchManagement();
 
   return (
@@ -14,11 +13,11 @@ export function BatchPage() {
       <Typography.Title level={2} className="!mb-1">批量管理</Typography.Title>
       <BatchManagement
         selectedCount={workbench.selectedCount}
+        exporting={workbench.exporting}
         onSelectAll={workbench.selectAll}
         onInvert={workbench.invertSelection}
         onClear={workbench.clearSelection}
         onExport={workbench.exportSelected}
-        onMassSend={() => message.info("群发接口已预留，待后端接入")}
       />
       <Card title="选择会话" loading={workbench.loading} className="min-h-[720px]">
         <ConversationList

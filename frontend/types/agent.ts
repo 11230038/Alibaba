@@ -17,6 +17,9 @@ export interface DbAgentPreset {
   prompt: string;
   intelevel: number;
   tools: string[];
+  enabled: boolean;
+  updated_at: string;
+  category?: "system" | "regular";
 }
 
 export interface AgentPreset {
@@ -31,22 +34,18 @@ export interface AgentPreset {
   updated_at: string;
 }
 
+export interface AgentEditValues {
+  name?: string;
+  description?: string;
+  prompt?: string;
+  level?: number;
+  capabilities?: string[];
+}
+
 export interface SystemAgentDefinition {
   display_name: string;
   apid: string;
   description: string;
-}
-
-export interface LlmConfig {
-  level?: number;
-  model: string;
-  temperature: number;
-  maxTokens: number;
-  systemPrompt: string;
-  baseUrl?: string;
-  apiKey?: string;
-  context?: number;
-  maxToolRounds?: number | null;
 }
 
 export interface LlmLevelConfig {
@@ -88,9 +87,7 @@ export interface AgentTestSession {
 }
 
 export interface AgentConsoleState {
-  llmConfig: LlmConfig;
-  llmLevels?: LlmLevelConfig[];
-  documentLlmConfig?: DocumentLlmConfig;
+  llmLevels: LlmLevelConfig[];
   agents: AgentConfig[];
   agentPresets?: AgentPreset[];
   systemAgents?: SystemAgentDefinition[];

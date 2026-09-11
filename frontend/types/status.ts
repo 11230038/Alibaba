@@ -30,6 +30,7 @@ export interface TaskSnapshot {
   status: DocumentTaskStatus;
   message: string;
   result: [boolean, string] | null;
+  target?: string;
   created_at: number;
   started_at: number | null;
   completed_at: number | null;
@@ -39,9 +40,8 @@ export interface HealthModule {
   id: ID;
   name: string;
   status: HealthStatus;
-  latency: number;
+  latency: number | null;
   description: string;
-  lastCheckedAt: string;
 }
 
 export interface TaskItem {
@@ -50,8 +50,10 @@ export interface TaskItem {
   status: TaskStatus;
   createdAt: string;
   duration: string;
-  owner: string;
-  remark: string;
+  target?: string;
+  message: string;
+  result?: string;
+  resultSuccess?: boolean;
 }
 
 export interface SystemStatusSnapshot {
@@ -67,5 +69,5 @@ export interface SystemStatusSnapshot {
 
 export interface CreateTestTaskInput {
   type: string;
-  owner: string;
+  target: string;
 }

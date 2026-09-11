@@ -3,7 +3,16 @@
 import { CheckOutlined, ClearOutlined, ExportOutlined, MessageOutlined, SwapOutlined } from "@ant-design/icons";
 import { Button, Card, Space, Tag, Typography } from "antd";
 
-export function BatchManagement({ selectedCount, onSelectAll, onInvert, onClear, onExport, onMassSend }: { selectedCount: number; onSelectAll: () => void; onInvert: () => void; onClear: () => void; onExport: () => void; onMassSend: () => void }) {
+type BatchManagementProps = {
+  selectedCount: number;
+  exporting: boolean;
+  onSelectAll: () => void;
+  onInvert: () => void;
+  onClear: () => void;
+  onExport: () => void;
+};
+
+export function BatchManagement({ selectedCount, exporting, onSelectAll, onInvert, onClear, onExport }: BatchManagementProps) {
   return (
     <Card
       size="small"
@@ -20,14 +29,14 @@ export function BatchManagement({ selectedCount, onSelectAll, onInvert, onClear,
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600">
             <CheckOutlined />
           </div>
-          <Typography.Text type="secondary">已选择 {selectedCount} 个会话</Typography.Text>
+          <Typography.Text>批量操作</Typography.Text>
         </div>
         <Space wrap size={[8, 8]} className="md:justify-end">
           <Button size="small" icon={<CheckOutlined />} onClick={onSelectAll}>全选</Button>
           <Button size="small" icon={<SwapOutlined />} onClick={onInvert}>反选</Button>
           <Button size="small" icon={<ClearOutlined />} onClick={onClear}>清空</Button>
-          <Button size="small" icon={<ExportOutlined />} onClick={onExport}>导出 TXT</Button>
-          <Button size="small" type="primary" icon={<MessageOutlined />} onClick={onMassSend}>群发占位</Button>
+          <Button size="small" icon={<ExportOutlined />} loading={exporting} disabled={exporting} onClick={onExport}>导出 TXT</Button>
+          <Button size="small" icon={<MessageOutlined />} disabled>群发</Button>
         </Space>
       </div>
     </Card>

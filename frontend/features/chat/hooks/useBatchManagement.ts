@@ -11,6 +11,7 @@ export function useBatchManagement() {
   const { conversations, loading, reload } = useConversationSummaries();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [groupMode, setGroupMode] = useState<"time" | "status">("time");
+  const [exporting, setExporting] = useState(false);
   const availableIds = useMemo(() => new Set(conversations.map((conversation) => conversation.id)), [conversations]);
   const visibleSelectedIds = useMemo(() => selectedIds.filter((id) => availableIds.has(id)), [availableIds, selectedIds]);
 
@@ -27,19 +28,27 @@ export function useBatchManagement() {
   }
 
   async function exportSelected() {
+    if (exporting) return;
     if (!visibleSelectedIds.length) {
       message.warning("请先选择要导出的会话");
       return;
     }
-    const result = await backend.exportConversations({ conversationIds: visibleSelectedIds });
-    const blob = new Blob([result.content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = result.fileName;
-    link.click();
-    URL.revokeObjectURL(url);
-    message.success("已导出 TXT 文件");
+    setExporting(true);
+    try {
+      const result = await backend.exportConversations({ conversationIds: visibleSelectedIds });
+      const blob = new Blob([result.content], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = result.fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+      message.success("已导出 TXT 文件");
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : "会话导出失败");
+    } finally {
+      setExporting(false);
+    }
   }
 
   return {
@@ -47,6 +56,7 @@ export function useBatchManagement() {
     loading,
     selectedIds: visibleSelectedIds,
     selectedCount: visibleSelectedIds.length,
+    exporting,
     groupMode,
     setGroupMode,
     toggleSelected,

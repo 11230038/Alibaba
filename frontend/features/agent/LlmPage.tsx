@@ -3,6 +3,7 @@
 import { EditOutlined } from "@ant-design/icons";
 import { Button, Card, Form, Input, InputNumber, Modal, Space, Table, Tag, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
+import { isValidToolRoundLimit } from "@/domain/agent/agentModel";
 import type { LlmLevelConfig } from "@/types/agent";
 import { HydrationSafeTable } from "@/components/HydrationSafeTable";
 import { useAgentWorkbench } from "./hooks/useAgentWorkbench";
@@ -15,27 +16,11 @@ export function LlmPage() {
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm<LlmLevelFormValues>();
 
-  const levels = useMemo(() => {
-    if (workbench.state?.llmLevels?.length) return workbench.state.llmLevels;
-    const current = workbench.state?.documentLlmConfig;
-    return current ? [{
-      level: current.level,
-      baseUrl: current.base_url,
-      apiKey: current.api_key,
-      modelName: current.model_name,
-      systemPrompt: current.system_prompt,
-      context: current.context,
-      maxToolRounds: current.max_tool_rounds,
-    }] : [];
-  }, [workbench.state?.documentLlmConfig, workbench.state?.llmLevels]);
+  const levels = useMemo(() => workbench.state?.llmLevels ?? [], [workbench.state?.llmLevels]);
 
   useEffect(() => {
     if (editingLevel) form.setFieldsValue(editingLevel);
   }, [editingLevel, form]);
-
-  function openEditor(level: LlmLevelConfig) {
-    setEditingLevel(level);
-  }
 
   function closeEditor() {
     setEditingLevel(undefined);
@@ -46,8 +31,8 @@ export function LlmPage() {
     if (!editingLevel) return;
     setSaving(true);
     try {
-      await workbench.saveLlmLevel({ ...values, level: editingLevel.level });
-      closeEditor();
+      const ok = await workbench.saveLlmLevel({ ...values, level: editingLevel.level });
+      if (ok) closeEditor();
     } finally {
       setSaving(false);
     }
@@ -81,8 +66,8 @@ export function LlmPage() {
               align: "right" as const,
               render: (value: number) => `${value.toLocaleString()} tokens`,
             },
-            { title: "最大工具轮数", dataIndex: "maxToolRounds", width: 150, align: "right" as const },
-            { title: "操作", width: 110, fixed: "right" as const, render: (_: unknown, record: LlmLevelConfig) => <Button icon={<EditOutlined />} onClick={() => openEditor(record)}>编辑</Button> },
+            { title: "最大工具轮数", dataIndex: "maxToolRounds", width: 150, align: "right" as const, render: (value: number | null) => value ?? "不限" },
+            { title: "操作", width: 110, fixed: "right" as const, render: (_: unknown, record: LlmLevelConfig) => <Button icon={<EditOutlined />} onClick={() => setEditingLevel(record)}>编辑</Button> },
           ]}
           locale={{ emptyText: "暂无 LLM 配置" }}
         />
@@ -107,11 +92,11 @@ export function LlmPage() {
             <Input.Password />
           </Form.Item>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Form.Item name="context" label="上下文长度" rules={[{ required: true }]}>
-              <InputNumber min={1} step={1000} className="w-full" />
+            <Form.Item name="context" label="上下文长度" rules={[{ validator: (_, value: number | undefined) => typeof value === "number" && Number.isInteger(value) && value > 0 ? Promise.resolve() : Promise.reject(new Error("请输入正整数")) }]}>
+              <InputNumber min={1} step={1000} precision={0} className="w-full" />
             </Form.Item>
-            <Form.Item name="maxToolRounds" label="最大工具轮数" rules={[{ validator: (_, value: number | null) => value === null || value === undefined || (Number.isInteger(value) && value > 0) ? Promise.resolve() : Promise.reject(new Error("请输入正整数或留空")) }]}>
-              <InputNumber min={1} max={32} className="w-full" placeholder="留空表示不限制" />
+            <Form.Item name="maxToolRounds" label="最大工具轮数" rules={[{ validator: (_, value: number | null) => isValidToolRoundLimit(value) ? Promise.resolve() : Promise.reject(new Error("请输入正整数或留空")) }]}>
+              <InputNumber min={1} className="w-full" placeholder="留空表示不限制" />
             </Form.Item>
           </div>
           <Form.Item name="systemPrompt" label="系统提示词" rules={[{ required: true, message: "请输入系统提示词" }]}>

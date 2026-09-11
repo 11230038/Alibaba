@@ -4,12 +4,11 @@ import { AppstoreOutlined, CommentOutlined, DashboardOutlined, FileTextOutlined,
 import { Avatar, Button, Layout, Menu, Tooltip, Typography } from "antd";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { useEffect } from "react";
-import { CustomerInfo } from "@/features/chat/conversation/CustomerInfo";
-import { fallbackAvatarUrl, sellerAvatarUrl } from "@/domain/chat/avatarModel";
+import { fallbackAvatarUrl } from "@/domain/chat/avatarModel";
 import { backend } from "@/services/client";
+import { ProfileDrawer } from "./ProfileDrawer";
 import type { SelfInfo } from "@/types/home";
 
 const { Header, Sider, Content } = Layout;
@@ -22,7 +21,7 @@ const navItems = [
     label: "聊天工作台",
     children: [
       { key: "/chat/customer-sessions", icon: <CommentOutlined />, label: <Link href="/chat/customer-sessions">客户会话</Link> },
-      { key: "/chat/agent-sessions", icon: <RobotOutlined />, label: <Link href="/chat/agent-sessions">Agent会话</Link> },
+      { key: "/chat/agent-sessions", icon: <RobotOutlined />, label: <Link href="/chat/agent-sessions">Agent 会话</Link> },
     ],
   },
   { key: "/batch", icon: <SelectOutlined />, label: <Link href="/batch">会话管理</Link> },
@@ -32,7 +31,7 @@ const navItems = [
     label: "自动化",
     children: [
       { key: "/agent/llm", icon: <SettingOutlined />, label: <Link href="/agent/llm">LLM</Link> },
-      { key: "/agent/system-prompt", icon: <FileTextOutlined />, label: <Link href="/agent/system-prompt">全局 SYSTEM_PROMPT</Link> },
+      { key: "/agent/system-prompt", icon: <FileTextOutlined />, label: <Link href="/agent/system-prompt">Level SYSTEM_PROMPT</Link> },
       { key: "/agent/system-agents", icon: <RobotOutlined />, label: <Link href="/agent/system-agents">系统 Agent</Link> },
       { key: "/agent/regular-agents", icon: <RobotOutlined />, label: <Link href="/agent/regular-agents">普通 Agent</Link> },
     ],
@@ -67,15 +66,30 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [selfInfo, setSelfInfo] = useState<SelfInfo | null>();
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string>();
   const [profileOpen, setProfileOpen] = useState(false);
   const [avatarSource, setAvatarSource] = useState(fallbackAvatarUrl);
 
-  useEffect(() => {
-    void backend.getSelfInfo().then((info) => {
+  const loadSelfInfo = useCallback(async () => {
+    setProfileLoading(true);
+    setProfileError(undefined);
+    try {
+      const info = await backend.getSelfInfo();
       setSelfInfo(info);
-      if (info) setAvatarSource(sellerAvatarUrl);
-    });
+      setAvatarSource(info?.avatar_url || fallbackAvatarUrl);
+    } catch (error: unknown) {
+      setSelfInfo(null);
+      setAvatarSource(fallbackAvatarUrl);
+      setProfileError(error instanceof Error ? error.message : "个人信息加载失败");
+    } finally {
+      setProfileLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => void loadSelfInfo());
+  }, [loadSelfInfo]);
 
   const selectedKey = pathname.startsWith("/chat/agent-sessions")
     ? "/chat/agent-sessions"
@@ -159,14 +173,21 @@ export function AppShell({ children }: { children: ReactNode }) {
                 return true;
               }}
             />
-            <span className="hidden max-w-40 truncate md:inline">测试用户</span>
+            <span className="hidden max-w-40 truncate md:inline">{selfInfo ? [selfInfo.first_name, selfInfo.last_name].filter(Boolean).join(" ") || selfInfo.login_id : "个人信息"}</span>
           </Button>
         </Header>
         <Content className="min-h-0 overflow-y-auto p-6">
           <div className="mx-auto max-w-[1480px]">{children}</div>
         </Content>
       </Layout>
-      <CustomerInfo selfInfo={selfInfo ?? undefined} open={profileOpen} onClose={() => setProfileOpen(false)} />
+      <ProfileDrawer
+        selfInfo={selfInfo}
+        loading={profileLoading}
+        error={profileError}
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        onRetry={() => void loadSelfInfo()}
+      />
     </Layout>
   );
 }

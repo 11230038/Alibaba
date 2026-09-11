@@ -3,7 +3,7 @@
 import { Descriptions, Modal, Typography } from "antd";
 import type { ReactNode } from "react";
 
-export type ActionConfirmDetail = {
+type ActionConfirmDetail = {
   label: string;
   value: ReactNode;
   span?: number;

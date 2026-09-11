@@ -1,20 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { adaptConversationDetail, adaptConversationSummary } from "@/services/chatAdapter";
+import { adaptConversationDetail, adaptConversationSummary, adaptSendMessageResult } from "@/services/chatAdapter";
 import type { BusinessCard } from "@/types/cards";
-import type { ConversationAggregateDto } from "@/types/chatTransport";
+import type { ConversationAggregateDto, ConversationSendResultDto } from "@/types/chatTransport";
 
 const card: BusinessCard = {
   id: "card-1",
   title: "推荐卡片",
   type: "generic",
-  status: "published",
   summary: "卡片摘要",
-  owner: "业务卡片",
-  updatedAt: "2026-09-08 10:00",
   tags: ["卡片"],
   coverTone: "#fff",
   details: [],
-  recommendedScenario: "推荐场景",
 };
 
 const aggregate: ConversationAggregateDto = {
@@ -95,9 +91,39 @@ describe("chat adapter", () => {
     expect(JSON.stringify(detail)).not.toContain("external_mid");
   });
 
-  it("uses an explicit fallback when optional aggregate data is absent", () => {
-    const summary = adaptConversationSummary({ sid: 99, name: null, participants: [], messages: [], latest: { content: null, updated_at: null }, unread_count: 0, status: "following", priority: "low" });
-    expect(summary.customer).toMatchObject({ id: "99", name: "未知客户", country: "未知" });
+  it("uses cards carried by the aggregate before adapter options", () => {
+    const detail = adaptConversationDetail({ ...aggregate, business_cards: [card] });
+    expect(detail.messages[1].card).toEqual(card);
+  });
+
+  it("keeps analysis absent when aggregate has not been analyzed", () => {
+    const detail = adaptConversationDetail({ ...aggregate, analysis: undefined });
+    expect(detail.analysis).toBeUndefined();
+  });
+
+  it("does not treat missing text message roles as buyer messages", () => {
+    const detail = adaptConversationDetail({
+      ...aggregate,
+      messages: [{ message: { external_mid: "message-unknown", sid: 42, sender: 101, read: null, content: "hello", type: "text" }, created_at: "2026-09-08 10:12" }],
+    });
+
+    expect(detail.messages[0]).toMatchObject({ role: "unknown", content: "hello" });
+  });
+
+  it("keeps customer relationship fields unknown instead of guessing from array order", () => {
+    const summary = adaptConversationSummary({ sid: 99, name: null, participants: [9001], accounts: [{ aid: 9001, cid: 901, pid: "alibaba", account: "seller-account", nickname: "Seller", avatar: null, sids: [99], extra: null }], customers: [{ cid: 901, name: "Seller Customer", region: "China" }], messages: [], latest: { content: null, updated_at: null }, unread_count: 0, status: "following", priority: "low" });
+    expect(summary.customer).toMatchObject({ id: "99", name: "未知客户", country: "", company: "", stage: "unknown" });
     expect(summary.updatedAt).toBe("未知时间");
+  });
+
+  it("applies the same card completion to send-message results", () => {
+    const result: ConversationSendResultDto = {
+      message: aggregate.messages[1],
+      conversation: { ...aggregate, business_cards: [card] },
+      execution: { success: true, message: "ok", task_snapshot: null },
+    };
+
+    expect(adaptSendMessageResult(result).message?.card).toEqual(card);
+    expect(adaptSendMessageResult(result).conversation.messages[1].card).toEqual(card);
   });
 });

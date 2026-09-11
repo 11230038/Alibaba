@@ -1,19 +1,18 @@
-import { agentConsole, agentPresets, documentLlmConfig, llmLevels, systemAgents } from "@/mock/agentData";
+import { agentConsole, agentPresets, llmLevels, systemAgents } from "@/mock/agentData";
 import { businessCards } from "@/mock/cardData";
 import { assistantSuggestions, conversationAggregates } from "@/mock/conversationData";
-import { homeDashboard } from "@/mock/homeData";
 import { mockSelfInfo } from "@/mock/selfData";
 import { keyStatus, nodeResult, proxyStatus, receiverStatus, systemStatus, taskSnapshots } from "@/mock/statusData";
 import { buildConversationExport } from "@/domain/chat/chatModel";
 import { adaptConversationDetail, adaptConversationSummary } from "@/services/chatAdapter";
 import { buildSystemStatusSnapshot, taskSnapshotToTaskItem } from "@/domain/status/statusModel";
-import { agentPresetToConfig, agentPresetToDbPreset, dbPresetToAgentPreset, documentToLlmLevelConfig, documentToUiLlmConfig, getLatestAgentTestTurn, removeLatestAgentTestTurn, replaceLatestAgentTestReply, upsertLlmLevel } from "@/domain/agent/agentModel";
-import type { AgentConsoleState, AgentPreset, AgentTestSession, DbAgentPreset, DocumentLlmConfig } from "@/types/agent";
+import { SYSTEM_AGENT_APIDS, agentPresetToConfig, agentPresetToDbPreset, canRunAgentExecution, dbPresetToAgentPreset, documentToLlmLevelConfig, getLatestAgentTestTurn, removeLatestAgentTestTurn, replaceLatestAgentTestReply, upsertLlmLevel } from "@/domain/agent/agentModel";
+import type { AgentConsoleState, AgentPreset, AgentTestSession, DbAgentPreset } from "@/types/agent";
 import type { BusinessCard } from "@/types/cards";
 import type { ConversationDetail } from "@/types/chatCanonical";
 import type { ConversationAggregateDto, Message } from "@/types/chatTransport";
 import type { SendMessageInput } from "@/types/chatOperations";
-import type { HomeDashboard, SelfInfo } from "@/types/home";
+import type { SelfInfo } from "@/types/home";
 import type { KeyStatus, NetworkStatus, NodeTestResult, SystemStatusSnapshot, TaskSnapshot } from "@/types/status";
 import type { OperationsBackend } from "./interfaces";
 
@@ -30,7 +29,6 @@ const initialState = {
   nodeResult,
   taskSnapshots,
   console: agentConsole,
-  llmConfig: documentLlmConfig,
   agentPresets,
 };
 
@@ -38,13 +36,12 @@ let selfInfoStore: SelfInfo | null = structuredClone(initialState.selfInfo);
 let conversationStore: ConversationAggregateDto[] = structuredClone(initialState.conversationAggregates);
 let businessCardStore: BusinessCard[] = structuredClone(initialState.cards);
 let statusStore: SystemStatusSnapshot = structuredClone(initialState.status);
-const keyStatusStore: KeyStatus = structuredClone(initialState.keyStatus);
+let keyStatusStore: KeyStatus = structuredClone(initialState.keyStatus);
 let proxyStatusStore: NetworkStatus = structuredClone(initialState.proxyStatus);
 let receiverStatusStore: NetworkStatus = structuredClone(initialState.receiverStatus);
-const nodeResultStore: NodeTestResult = structuredClone(initialState.nodeResult);
+let nodeResultStore: NodeTestResult = structuredClone(initialState.nodeResult);
 let taskSnapshotStore: TaskSnapshot[] = structuredClone(initialState.taskSnapshots);
 let consoleStore: AgentConsoleState = structuredClone(initialState.console);
-let documentLlmConfigStore: DocumentLlmConfig = structuredClone(initialState.llmConfig);
 let agentPresetStore: AgentPreset[] = structuredClone(initialState.agentPresets);
 const translationStore = new Map<string, string>();
 
@@ -55,17 +52,20 @@ export const mockBackend: OperationsBackend = {
     selfInfoStore = structuredClone(initialState.selfInfo);
     conversationStore = structuredClone(initialState.conversationAggregates);
     businessCardStore = structuredClone(initialState.cards);
+    keyStatusStore = structuredClone(initialState.keyStatus);
+    proxyStatusStore = structuredClone(initialState.proxyStatus);
+    receiverStatusStore = structuredClone(initialState.receiverStatus);
+    nodeResultStore = structuredClone(initialState.nodeResult);
     taskSnapshotStore = structuredClone(initialState.taskSnapshots);
-    documentLlmConfigStore = structuredClone(initialState.llmConfig);
+    agentPresetStore = structuredClone(initialState.agentPresets);
     consoleStore = structuredClone(initialState.console);
     statusStore = buildStatusSnapshot();
     translationStore.clear();
     return delay(undefined);
   },
 
-  getHomeDashboard: () => delay(buildHomeDashboard()),
-
   requestTranslations: async ({ texts, force = false }) => {
+    requireSystemAgent(SYSTEM_AGENT_APIDS.translation);
     const targets = texts.map((text) => text.trim()).filter(Boolean);
     let savedCount = 0;
 
@@ -86,37 +86,44 @@ export const mockBackend: OperationsBackend = {
   getConversation: async (id) => delay(buildConversationDetail(id)),
 
   translateMessage: async ({ conversationId, messageId, targetLanguage }) => {
+    requireSystemAgent(SYSTEM_AGENT_APIDS.translation);
     const detail = buildConversationDetail(conversationId);
     const message = detail.messages.find((item) => item.id === messageId);
-    const translatedContent = targetLanguage === "zh-CN" ? mockTranslate(message?.content ?? "") : `Mock translation: ${message?.content ?? ""}`;
-    if (message?.content) translationStore.set(message.content, translatedContent);
+    if (!message) throw new Error("消息不存在");
+    const translatedContent = targetLanguage === "zh-CN" ? mockTranslate(message.content) : `Mock translation: ${message.content}`;
+    translationStore.set(`${conversationId}:${messageId}:${targetLanguage}`, translatedContent);
     return delay({ messageId, translatedContent });
   },
 
   regenerateTranslation: async ({ conversationId, messageId, targetLanguage }) => {
+    requireSystemAgent(SYSTEM_AGENT_APIDS.translation);
     const detail = buildConversationDetail(conversationId);
     const message = detail.messages.find((item) => item.id === messageId);
-    const translatedContent = targetLanguage === "zh-CN" ? `重新翻译：${mockTranslate(message?.content ?? "")}` : `Regenerated mock translation: ${message?.content ?? ""}`;
-    if (message?.content) translationStore.set(message.content, translatedContent);
+    if (!message) throw new Error("消息不存在");
+    const translatedContent = targetLanguage === "zh-CN" ? `重新翻译：${mockTranslate(message.content)}` : `Regenerated mock translation: ${message.content}`;
+    translationStore.set(`${conversationId}:${messageId}:${targetLanguage}`, translatedContent);
     return delay({ messageId, translatedContent });
   },
 
   getAssistantSuggestions: async (conversationId) => {
+    requireSystemAgent(SYSTEM_AGENT_APIDS.replySuggestion);
     buildConversationDetail(conversationId);
     return delay(structuredClone(assistantSuggestions));
   },
 
   analyzeConversation: async (conversationId) => {
+    requireSystemAgent(SYSTEM_AGENT_APIDS.intentAnalysis);
     const detail = buildConversationDetail(conversationId);
+    if (!detail.analysis) throw new Error("会话暂无分析结果");
     return delay(detail.analysis);
   },
 
   sendMessage: async ({ conversationId, content, action = "send" }: SendMessageInput) => {
     const execution = executeSendMessage({ conversationId, content, action });
     const conversation = buildConversationDetail(conversationId);
-    const message = conversation.messages.at(-1);
-    if (!message) throw new Error("发送消息后未找到消息");
-    return delay({ message, conversation, execution });
+    const message = action === "send" ? conversation.messages.at(-1) : undefined;
+    if (action === "send" && !message) throw new Error("发送消息后未找到消息");
+    return delay(structuredClone({ message, conversation, execution }));
   },
 
   exportConversations: async ({ conversationIds }) => {
@@ -143,14 +150,15 @@ export const mockBackend: OperationsBackend = {
     return delay(structuredClone(statusStore), 420);
   },
 
-  createTestTask: async ({ type, owner }) => {
+  createTestTask: async ({ type, target }) => {
     const timestamp = Math.floor(Date.now() / 1000);
     const snapshot: TaskSnapshot = {
-      task_id: `task-${Date.now()}`,
+      task_id: `task-${crypto.randomUUID()}`,
       description: type,
       status: "pending",
-      message: `由 ${owner} 创建的前端 mock 任务`,
+      message: "前端测试任务已提交",
       result: null,
+      target,
       created_at: timestamp,
       started_at: null,
       completed_at: null,
@@ -169,34 +177,34 @@ export const mockBackend: OperationsBackend = {
   getAgentConsole: () => delay(structuredClone(consoleStore)),
 
   saveLlmConfig: async (input) => {
-    documentLlmConfigStore = structuredClone(input);
-    const currentUi = consoleStore.llmConfig;
-    const nextUi = documentToUiLlmConfig(documentLlmConfigStore, currentUi);
-    const savedLevel = documentToLlmLevelConfig(documentLlmConfigStore);
+    const savedDocument = structuredClone(input);
+    const savedLevel = documentToLlmLevelConfig(savedDocument);
     const nextLevels = upsertLlmLevel(consoleStore.llmLevels ?? llmLevels, savedLevel);
-    consoleStore = { ...consoleStore, documentLlmConfig: documentLlmConfigStore, llmConfig: nextUi, llmLevels: nextLevels };
-    return delay(structuredClone(documentLlmConfigStore));
+    consoleStore = { ...consoleStore, llmLevels: nextLevels };
+    return delay(savedDocument);
   },
 
   saveAgentPreset: async (input: DbAgentPreset) => {
-    const current = agentPresetStore.find((preset) => String(preset.id) === input.apid);
-    const normalized = dbPresetToAgentPreset(input, current, current?.updated_at ?? nowText());
-    agentPresetStore = current ? agentPresetStore.map((preset) => (String(preset.id) === input.apid ? normalized : preset)) : [normalized, ...agentPresetStore];
+    const current = agentPresetStore.find((preset) => preset.id === input.apid);
+    const normalized = dbPresetToAgentPreset(input, current, input.updated_at);
+    agentPresetStore = current ? agentPresetStore.map((preset) => (preset.id === input.apid ? normalized : preset)) : [normalized, ...agentPresetStore];
     syncConsoleAgents();
-    return delay(structuredClone(input));
+    return delay(agentPresetToDbPreset(normalized));
   },
 
   deleteAgentPreset: async (id) => {
-    const exists = agentPresetStore.some((preset) => String(preset.id) === id);
-    agentPresetStore = agentPresetStore.filter((preset) => String(preset.id) !== id || preset.category === "system");
+    const target = agentPresetStore.find((preset) => preset.id === id);
+    if (!target || target.category === "system") return delay(false);
+    agentPresetStore = agentPresetStore.filter((preset) => preset.id !== id);
+    consoleStore = { ...consoleStore, history: consoleStore.history.filter((session) => session.agentId !== id) };
     syncConsoleAgents();
-    return delay(exists);
+    return delay(true);
   },
 
   restoreSystemAgentDefault: async (apid) => {
-    const source = initialState.agentPresets.find((preset) => String(preset.id) === apid);
+    const source = initialState.agentPresets.find((preset) => preset.id === apid);
     if (!source) throw new Error("系统 Agent 默认配置不存在");
-    agentPresetStore = agentPresetStore.map((preset) => String(preset.id) === apid ? structuredClone(source) : preset);
+    agentPresetStore = agentPresetStore.map((preset) => preset.id === apid ? structuredClone(source) : preset);
     syncConsoleAgents();
     return delay(agentPresetToDbPreset(source));
   },
@@ -204,16 +212,16 @@ export const mockBackend: OperationsBackend = {
   listSystemAgentDefinitions: () => delay(structuredClone(systemAgents)),
 
   runAgentTest: async ({ agentId, content, sessionId }) => {
-    const agent = consoleStore.agents.find((item) => item.id === agentId) ?? consoleStore.agents[0];
+    const agent = consoleStore.agents.find((item) => item.id === agentId);
+    if (!canRunAgentExecution(agent)) throw new Error("Agent 不存在或未启用");
     const now = nowText();
 
     if (sessionId) {
-      const existingSession = consoleStore.history.find((item) => item.id === sessionId);
-      if (!existingSession) throw new Error("Agent 会话不存在");
+      const existingSession = getAgentSession(sessionId);
       if (existingSession.agentId !== agentId || !content?.trim()) throw new Error("Agent 会话请求无效");
-      const userMessage = { id: `user-${Date.now()}`, role: "user" as const, content: content.trim(), createdAt: now };
+      const userMessage = { id: `user-${crypto.randomUUID()}`, role: "user" as const, content: content.trim(), createdAt: now };
       const reply = {
-        id: `assistant-${Date.now()}`,
+        id: `assistant-${crypto.randomUUID()}`,
         role: "assistant" as const,
         content: `模拟回复：${agent.name} 已根据接口文档约定返回处理建议。`,
         createdAt: now,
@@ -224,14 +232,14 @@ export const mockBackend: OperationsBackend = {
     }
 
     const session: AgentTestSession = {
-      id: `session-${Date.now()}`,
+      id: `session-${crypto.randomUUID()}`,
       title: `${agent.name} 测试`,
       agentId,
       createdAt: now,
       messages: content?.trim() ? [
-        { id: `user-${Date.now()}`, role: "user", content: content.trim(), createdAt: now },
+        { id: `user-${crypto.randomUUID()}`, role: "user", content: content.trim(), createdAt: now },
         {
-          id: `assistant-${Date.now()}`,
+          id: `assistant-${crypto.randomUUID()}`,
           role: "assistant",
           content: `模拟回复：${agent.name} 已根据接口文档约定返回处理建议。`,
           createdAt: now,
@@ -254,11 +262,13 @@ export const mockBackend: OperationsBackend = {
 
   regenerateAgentTestSessionReply: async (id) => {
     const source = getAgentSession(id);
+    const agent = consoleStore.agents.find((item) => item.id === source.agentId);
+    if (!canRunAgentExecution(agent)) throw new Error("Agent 不存在或未启用");
     const turn = getLatestAgentTestTurn(source);
     if (!turn) throw new Error("会话没有可重新回复的完整问答轮次");
     const reply = {
       ...turn.assistant,
-      id: `assistant-${Date.now()}`,
+      id: `assistant-${crypto.randomUUID()}`,
       content: `模拟重新回复：已根据“${turn.user.content}”生成新的处理建议。`,
       createdAt: nowText(),
     };
@@ -269,39 +279,18 @@ export const mockBackend: OperationsBackend = {
   },
 
   deleteAgentTestSession: async (id) => {
-    consoleStore = { ...consoleStore, history: consoleStore.history.filter((session) => session.id !== id) };
+    const source = getAgentSession(id);
+    consoleStore = { ...consoleStore, history: consoleStore.history.filter((session) => session.id !== source.id) };
     return delay(undefined);
   },
 
   branchAgentTestSession: async (id) => {
-    const source = consoleStore.history.find((session) => session.id === id) ?? consoleStore.history[0];
-    const branch = { ...structuredClone(source), id: `session-${Date.now()}`, title: `${source.title} - 分支`, createdAt: nowText() };
+    const source = getAgentSession(id);
+    const branch = { ...structuredClone(source), id: `session-${crypto.randomUUID()}`, title: `${source.title} - 分支`, createdAt: nowText() };
     consoleStore = { ...consoleStore, history: [branch, ...consoleStore.history] };
     return delay(branch);
   },
 };
-
-function buildHomeDashboard(): HomeDashboard {
-  const summaries = conversationStore.map((conversation) => adaptConversationSummary(conversation));
-  return {
-    ...structuredClone(homeDashboard),
-    info: structuredClone(selfInfoStore),
-    metrics: homeDashboard.metrics.map((metric) => {
-      if (metric.key === "conversations") return { ...metric, value: conversationStore.length };
-      if (metric.key === "unread") return { ...metric, value: summaries.reduce((total, item) => total + item.unreadCount, 0) };
-      if (metric.key === "cards") return { ...metric, value: businessCardStore.length };
-      return metric;
-    }),
-    customerSummaries: summaries.slice(0, 3).map((conversation) => ({
-      key: conversation.id,
-      name: conversation.customer.name,
-      stage: conversation.customer.tags[0] ?? "新线索",
-      nextAction: conversation.latestMessage,
-      priority: conversation.priority,
-    })),
-    tasks: taskSnapshotStore.map(taskSnapshotToTaskItem),
-  };
-}
 
 function buildConversationDetail(id: string): ConversationDetail {
   const conversation = conversationStore.find((item) => conversationMatchesId(item, id));
@@ -310,42 +299,48 @@ function buildConversationDetail(id: string): ConversationDetail {
 }
 
 function executeSendMessage(input: SendMessageInput) {
+  const action = input.action ?? "send";
+  if (action !== "send" && action !== "test") throw new Error("消息动作无效");
+  const index = conversationStore.findIndex((item) => conversationMatchesId(item, input.conversationId));
+  if (index < 0) throw new Error("会话不存在");
+  const content = input.content.trim();
+  if (!content) throw new Error("消息内容不能为空");
+
+  const target = conversationStore[index];
   const timestamp = Math.floor(Date.now() / 1000);
   const task: TaskSnapshot = {
-    task_id: `task-${Date.now()}`,
-    description: input.action === "send" ? "发送聊天消息" : "输入聊天草稿",
+    task_id: `task-${crypto.randomUUID()}`,
+    description: action === "send" ? "发送聊天消息" : "输入聊天草稿",
     status: "succeeded",
-    message: input.action === "send" ? "消息已发送（Mock）" : "消息已输入但未发送（Mock）",
-    result: [true, input.action === "send" ? "发送完成" : "输入完成"],
+    message: action === "send" ? "消息已发送" : "消息已输入但未发送",
+    result: [true, action === "send" ? "发送完成" : "输入完成"],
+    target: String(target.sid),
     created_at: timestamp,
     started_at: timestamp,
     completed_at: timestamp + 1,
   };
-  taskSnapshotStore = [task, ...taskSnapshotStore];
 
-  if (input.action === "send") {
-    const index = conversationStore.findIndex((item) => conversationMatchesId(item, input.conversationId));
-    if (index < 0) throw new Error("会话不存在");
-    const target = conversationStore[index];
-    const externalMid = `msg-${Date.now()}`;
+  if (action === "send") {
+    const externalMid = `msg-${crypto.randomUUID()}`;
     const nextUpdatedAt = nowText();
     const message: Message = {
       external_mid: externalMid,
       sid: target.sid,
       sender: selfInfoStore?.aid ?? 0,
       read: true,
-      content: input.content,
+      content,
       type: "text",
     };
     conversationStore[index] = {
       ...target,
       messages: [...target.messages, { message, created_at: nextUpdatedAt, role: "seller" }],
-      latest: { updated_at: nextUpdatedAt, content: input.content },
+      latest: { updated_at: nextUpdatedAt, content },
       unread_count: 0,
       status: "following",
     };
   }
 
+  taskSnapshotStore = [task, ...taskSnapshotStore];
   statusStore = buildStatusSnapshot();
   return { success: true, message: task.message, task_snapshot: task };
 }
@@ -358,6 +353,11 @@ function getAgentSession(id: string) {
   const session = consoleStore.history.find((item) => item.id === id);
   if (!session) throw new Error("Agent 会话不存在");
   return session;
+}
+
+function requireSystemAgent(apid: string) {
+  const agent = consoleStore.agents.find((item) => item.id === apid && item.category === "system");
+  if (!canRunAgentExecution(agent)) throw new Error("系统 Agent 不存在或未启用");
 }
 
 function buildStatusSnapshot() {

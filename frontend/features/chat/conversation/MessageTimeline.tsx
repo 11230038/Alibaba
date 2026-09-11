@@ -15,8 +15,9 @@ export function MessageTimeline({ messages, buyerId = "buyer", showTranslations 
     <Space orientation="vertical" className="w-full" size="middle">
       {messages.map((message) => {
         const isSeller = message.role === "seller";
-        const isSystem = message.role === "system";
+        const isSystem = message.role === "system" || message.role === "unknown";
         const isBot = isSystem || message.role === "card";
+        const card = message.card;
         return (
           <div key={message.id} className={`flex ${isSeller ? "justify-end" : "justify-start"}`}>
             <div className={`flex max-w-[78%] gap-3 ${isSeller ? "flex-row-reverse" : ""}`}>
@@ -31,9 +32,9 @@ export function MessageTimeline({ messages, buyerId = "buyer", showTranslations 
               />
               <Card size="small" className={isSeller ? "bg-blue-50" : isSystem ? "bg-slate-50" : "bg-white"}>
                 <Space orientation="vertical" size={8} className="w-full">
-                  <Typography.Text type="secondary" className="text-xs">{message.createdAt}</Typography.Text>
-                  {message.card ? (
-                    <BusinessCardView card={message.card} compact onClick={() => onOpenCard(message.card!.id)} />
+                  <Typography.Text className="text-xs">{message.createdAt}</Typography.Text>
+                  {card ? (
+                    <BusinessCardView card={card} compact onClick={() => onOpenCard(card.id)} />
                   ) : (
                     <Typography.Paragraph className="!mb-0 whitespace-pre-wrap">{message.content}</Typography.Paragraph>
                   )}

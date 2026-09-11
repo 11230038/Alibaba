@@ -2,24 +2,24 @@
 
 import { DeleteOutlined, ExperimentOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Button, Card, Col, Empty, Row, Space, Table, Typography } from "antd";
+import { useState } from "react";
 import { ActionConfirmModal } from "@/components/ActionConfirmModal";
 import { HydrationSafeTable } from "@/components/HydrationSafeTable";
 import { StatusTag } from "@/components/StatusTag";
-import { useState } from "react";
 import type { HealthModule, TaskItem } from "@/types/status";
 import { useStatusWorkbench } from "./hooks/useStatusWorkbench";
 
-const healthModuleIds = ["health-identity", "health-proxy", "health-receiver"] as const;
+const healthModuleIds = ["health-identity", "health-proxy", "health-receiver", "health-node"] as const;
 
 export function StatusPage() {
-  const { snapshot, loading, refreshing, refresh, createTestTask, deleteTask, deletingTaskId } = useStatusWorkbench();
+  const { snapshot, loading, refreshing, creatingTask, refresh, createTestTask, deleteTask, deletingTaskId } = useStatusWorkbench();
   const [pendingDeleteTask, setPendingDeleteTask] = useState<TaskItem>();
   const modules = healthModuleIds.map((id) => snapshot?.modules.find((module) => module.id === id)).filter((module): module is HealthModule => Boolean(module));
 
   async function handleDeleteConfirm() {
     if (!pendingDeleteTask) return;
-    await deleteTask(pendingDeleteTask.id);
-    setPendingDeleteTask(undefined);
+    const deleted = await deleteTask(pendingDeleteTask.id);
+    if (deleted) setPendingDeleteTask(undefined);
   }
 
   return (
@@ -38,7 +38,7 @@ export function StatusPage() {
       <Card title="快捷测试动作">
         <Space wrap>
           <Button icon={<ReloadOutlined />} loading={refreshing} onClick={refresh}>刷新运行状态</Button>
-          <Button type="primary" icon={<ExperimentOutlined />} onClick={createTestTask}>创建 mock 测试任务</Button>
+          <Button type="primary" icon={<ExperimentOutlined />} loading={creatingTask} onClick={createTestTask}>创建测试任务</Button>
         </Space>
       </Card>
 
@@ -52,10 +52,11 @@ export function StatusPage() {
           columns={[
             { title: "任务 ID", dataIndex: "id", width: 150 },
             { title: "操作类型", dataIndex: "type", width: 180 },
-            { title: "目标", dataIndex: "owner", width: 180 },
+            { title: "目标", dataIndex: "target", width: 180, render: (value: string | undefined) => value || "—" },
             { title: "创建时间", dataIndex: "createdAt", width: 180 },
             { title: "状态", dataIndex: "status", width: 120, render: (value: TaskItem["status"]) => <StatusTag status={value} /> },
-            { title: "结果", dataIndex: "remark", minWidth: 280 },
+            { title: "任务消息", dataIndex: "message", minWidth: 220 },
+            { title: "结果", dataIndex: "result", minWidth: 220, render: (value: string | undefined, task: TaskItem) => value ?? (task.status === "succeeded" || task.status === "failed" ? "—" : "未完成") },
             {
               title: "操作",
               key: "action",
@@ -84,7 +85,8 @@ export function StatusPage() {
           { label: "操作类型", value: pendingDeleteTask.type },
           { label: "状态", value: pendingDeleteTask.status },
           { label: "创建时间", value: pendingDeleteTask.createdAt },
-          { label: "结果", value: pendingDeleteTask.remark || "暂无结果", span: 2 },
+          { label: "任务消息", value: pendingDeleteTask.message, span: 2 },
+          { label: "结果", value: pendingDeleteTask.result ?? "—", span: 2 },
         ] : undefined}
       />
     </Space>
@@ -93,11 +95,7 @@ export function StatusPage() {
 
 function HealthModulePanel({ module }: { module: HealthModule }) {
   const title = module.id === "health-identity" ? "用户状态" : module.id === "health-proxy" ? "MITM 代理" : "MITM Receiver";
-  const description = module.id === "health-identity" && module.status === "healthy"
-    ? "卖家身份已捕获，CRM 会话可读取"
-    : module.id === "health-receiver" && module.status === "warning"
-      ? "最近 5 分钟捕获量偏低，等待新消息进入"
-      : module.description;
+  const statusText = module.status === "healthy" ? "在线" : module.status === "warning" ? "注意" : "离线";
 
   return (
     <div className="h-full rounded-lg border border-slate-200 bg-white p-4">
@@ -105,9 +103,11 @@ function HealthModulePanel({ module }: { module: HealthModule }) {
         <Typography.Text strong>{title}</Typography.Text>
         <StatusTag status={module.status} />
       </div>
-      <Typography.Title level={4} className="!mb-2">{module.status === "healthy" ? "在线" : module.status === "warning" ? "注意" : "离线"}</Typography.Title>
-      <Typography.Paragraph type="secondary" className="!mb-4 min-h-12">{description}</Typography.Paragraph>
-      <Typography.Text type="secondary" className="text-xs">最近检查：{module.lastCheckedAt}</Typography.Text>
+      <Typography.Title level={4} className="!mb-2">{statusText}</Typography.Title>
+      <Space orientation="vertical" size={4}>
+        <Typography.Text>{module.description}</Typography.Text>
+        <Typography.Text>延迟：{module.latency === null ? "未知" : `${module.latency}ms`}</Typography.Text>
+      </Space>
     </div>
   );
 }
